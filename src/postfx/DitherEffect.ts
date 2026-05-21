@@ -1,5 +1,5 @@
 import { Effect, BlendFunction } from 'postprocessing';
-import dither from '../../../shaders/dither.glsl?raw';
+import dither from '../shaders/dither.glsl?raw';
 
 const ditherFragment = /* glsl */`
   ${dither}

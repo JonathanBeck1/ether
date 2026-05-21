@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { Scene } from './BaseScene';
+import type { Scene } from './types';
+import type { QualityProfile } from '../quality';
 
 type SceneFactory = (renderer: THREE.WebGLRenderer) => Scene;
 
@@ -15,24 +16,38 @@ type SceneFactory = (renderer: THREE.WebGLRenderer) => Scene;
  */
 export class SceneManager {
   readonly renderer: THREE.WebGLRenderer;
+  readonly quality: QualityProfile;
   private scenes = new Map<string, SceneFactory>();
   private activeScene: Scene | null = null;
   private lastTime = 0;
   private running = false;
   private rafHandle = 0;
+  private resizeObserver: ResizeObserver | null = null;
+  private resizeDebounceTimer = 0;
+  private lastResizeW = 0;
+  private lastResizeH = 0;
+  private contextLost = false;
   private readonly tickBound: (now: number) => void;
   private readonly handleResizeBound: () => void;
+  private readonly handleContextLostBound: (e: Event) => void;
+  private readonly handleContextRestoredBound: () => void;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, quality: QualityProfile) {
+    this.quality = quality;
     // preserveDrawingBuffer is OFF for production (default false) — has a
     // small per-frame perf cost. Flip to true temporarily if you need to
     // grab the canvas via canvas.toDataURL / drawImage for screenshot QA;
     // remember to flip it back before shipping.
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      // Antialias toggled by quality tier. On LOW, MSAA is the single
+      // biggest GPU cost on mobile and the visual loss is acceptable
+      // because we're already DPR-pinned to 1.
+      antialias: quality.antialias,
       alpha: false,
-      powerPreference: 'high-performance',
+      // 'low-power' on LOW: trades raw perf for thermal headroom on
+      // long-running mobile sessions where the device throttles us anyway.
+      powerPreference: quality.tier === 'LOW' ? 'low-power' : 'high-performance',
     });
     // postprocessing v6's EffectComposer reads outputColorSpace from the renderer
     // and applies sRGB encoding in its OutputPass. Tone mapping is NOT auto-applied
@@ -40,12 +55,40 @@ export class SceneManager {
     // which keeps bloom contained without a separate ToneMappingEffect pass.
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.NoToneMapping;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.dprCap));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.lastResizeW = window.innerWidth;
+    this.lastResizeH = window.innerHeight;
 
     this.tickBound = this.tick.bind(this);
     this.handleResizeBound = this.handleResize.bind(this);
-    window.addEventListener('resize', this.handleResizeBound);
+    this.handleContextLostBound = this.handleContextLost.bind(this);
+    this.handleContextRestoredBound = this.handleContextRestored.bind(this);
+
+    // ResizeObserver on the canvas wrapper — fires on actual element-size
+    // changes, NOT on every window.resize event the way the old listener
+    // did. On iOS Safari, scroll-direction changes collapse/expand the URL
+    // bar which would previously trigger a full renderer.setSize + composer
+    // resize on every direction reversal. With RO we still get those height
+    // changes, but the debounce coalesces the bouncy intermediate values
+    // into one final resize when the URL bar settles.
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(this.handleResizeBound);
+      this.resizeObserver.observe(canvas);
+    } else {
+      // Pre-ES2020 fallback (Safari 13.0 and earlier). Don't bother
+      // debouncing — these browsers are too rare and old to optimize for.
+      window.addEventListener('resize', this.handleResizeBound);
+    }
+
+    // iOS Safari WILL drop the WebGL context under memory pressure (multiple
+    // tabs, OS pressure, switching apps with the tab open). Without a
+    // handler, the canvas turns into a permanent white rectangle until
+    // page reload. We catch it, stop the rAF, mark the body so CSS can
+    // show a fallback poster, and try to recover when/if the context
+    // comes back.
+    canvas.addEventListener('webglcontextlost', this.handleContextLostBound, false);
+    canvas.addEventListener('webglcontextrestored', this.handleContextRestoredBound, false);
   }
 
   registerScene(routeName: string, factory: SceneFactory): void {
@@ -78,6 +121,13 @@ export class SceneManager {
 
   private tick(now: number): void {
     if (!this.running) return;
+    // While the context is lost, don't try to render — it'll spam
+    // console errors and the calls just no-op anyway. Keep the rAF
+    // ticking so we resume cleanly on contextrestored.
+    if (this.contextLost) {
+      this.rafHandle = requestAnimationFrame(this.tickBound);
+      return;
+    }
     const deltaTime = (now - this.lastTime) / 1000;
     this.lastTime = now;
 
@@ -92,16 +142,48 @@ export class SceneManager {
     this.rafHandle = requestAnimationFrame(this.tickBound);
   }
 
+  /**
+   * Debounced resize. iOS URL bar collapse spams height changes for ~300ms;
+   * a 150ms debounce catches the settled value without grinding the renderer
+   * resizing 8 times per direction change. We also short-circuit when the
+   * size hasn't actually changed (RO can re-fire with identical dims after
+   * style mutations).
+   */
   private handleResize(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.renderer.setSize(w, h);
-    if (this.activeScene) {
-      this.activeScene.camera.aspect = w / h;
-      this.activeScene.camera.updateProjectionMatrix();
-      this.activeScene.composer?.setSize(w, h);
-      this.activeScene.onResize?.(w, h);
+    if (this.resizeDebounceTimer) {
+      clearTimeout(this.resizeDebounceTimer);
     }
+    this.resizeDebounceTimer = window.setTimeout(() => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (w === this.lastResizeW && h === this.lastResizeH) return;
+      this.lastResizeW = w;
+      this.lastResizeH = h;
+      this.renderer.setSize(w, h);
+      if (this.activeScene) {
+        this.activeScene.camera.aspect = w / h;
+        this.activeScene.camera.updateProjectionMatrix();
+        this.activeScene.composer?.setSize(w, h);
+        this.activeScene.onResize?.(w, h);
+      }
+    }, 150);
+  }
+
+  private handleContextLost(e: Event): void {
+    // Required to make `webglcontextrestored` fire — without preventDefault
+    // the browser treats the context as permanently dead.
+    e.preventDefault();
+    this.contextLost = true;
+    document.body.setAttribute('data-webgl-lost', '');
+    console.warn('[SceneManager] WebGL context lost — pausing render loop.');
+  }
+
+  private handleContextRestored(): void {
+    this.contextLost = false;
+    document.body.removeAttribute('data-webgl-lost');
+    console.warn('[SceneManager] WebGL context restored — resuming.');
+    // three.js auto-rebuilds GPU resources on next render once the context
+    // is back. We don't need to do anything else here.
   }
 
   /**
@@ -122,7 +204,16 @@ export class SceneManager {
       cancelAnimationFrame(this.rafHandle);
       this.rafHandle = 0;
     }
+    if (this.resizeDebounceTimer) {
+      clearTimeout(this.resizeDebounceTimer);
+      this.resizeDebounceTimer = 0;
+    }
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     window.removeEventListener('resize', this.handleResizeBound);
+    const canvas = this.renderer.domElement;
+    canvas.removeEventListener('webglcontextlost', this.handleContextLostBound);
+    canvas.removeEventListener('webglcontextrestored', this.handleContextRestoredBound);
     this.activeScene?.dispose();
     this.activeScene = null;
     this.renderer.dispose();

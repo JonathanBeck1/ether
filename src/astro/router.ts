@@ -1,50 +1,86 @@
-import { SceneManager } from './SceneManager';
-import { HomeScene } from './scenes/home/HomeScene';
-
-// Tag the canvas itself with the manager. The canvas is the persistent DOM
-// element (Astro's transition:persist), so this survives whatever surrounds it
-// and gives us a single source of truth for "is there already a live scene
-// rendering into this canvas?". Avoids module-scoped state that can desync
-// across Vite HMR or unusual reload paths.
-type ManagedCanvas = HTMLCanvasElement & { __sceneManager?: SceneManager };
-
-const SCENE_MANAGER_KEY = '__sceneManager' as const;
+import type * as THREE from 'three';
+import { SceneManager } from '../core/SceneManager';
+import type { Scene } from '../core/types';
+import { detectQuality, type QualityProfile } from '../quality/quality';
 
 /**
- * Single-page architecture: one HomeScene drives the entire site.
+ * Factory the caller supplies — receives the live `WebGLRenderer` and the
+ * resolved `QualityProfile`, returns the initial scene to mount.
  *
- * Defensive teardown: if a previous SceneManager is still attached to the
- * canvas (Astro client-side nav, HMR, etc.), we dispose it BEFORE creating
- * the new one. Two concurrent render loops on the same canvas → ghosting +
- * frame-to-frame jitter, which is what we're guarding against.
+ * @example
+ *   initSceneRouter(canvas, (renderer, quality) => new HomeScene(renderer, quality));
  */
-export function initSceneRouter(canvas: HTMLCanvasElement): void {
-  const tagged = canvas as ManagedCanvas;
+export type SceneFactory<S extends Scene> = (
+  renderer: THREE.WebGLRenderer,
+  quality: QualityProfile,
+) => S;
 
-  // If a previous manager is alive on this canvas, tear it down first.
-  // Forced context-loss inside destroy() ensures the next WebGLRenderer
-  // gets a clean GL context.
+/**
+ * Persistent-canvas Astro router.
+ *
+ * Owns the single-canvas pattern: a persistent `<canvas>` element
+ * survives Astro client-side navigations via `transition:persist`, and
+ * this initializer keeps exactly one `SceneManager` attached to it. If a
+ * previous manager is still alive (HMR, double-init, weird reload path),
+ * we tear it down BEFORE creating the new one — two render loops drawing
+ * into the same canvas presents as ghost-doubled letters and
+ * frame-to-frame jitter.
+ *
+ * The manager is tagged onto the canvas element itself (not module-scope
+ * state), which makes it robust to HMR module-instance churn.
+ *
+ * Quality is resolved BEFORE the renderer is constructed so we never have
+ * to recreate the WebGLRenderer at runtime with different antialias / DPR
+ * settings — you can't change MSAA on a live WebGL context. One-shot.
+ */
+type ManagedCanvas = HTMLCanvasElement & { __sceneManager?: SceneManager };
+const SCENE_MANAGER_KEY = '__sceneManager' as const;
+
+export interface InitSceneRouterOptions {
+  /** Route name to register + transition into. Default '/'. */
+  routeName?: string;
+  /**
+   * Override the quality profile (skip auto-detection). Useful for tests
+   * or sites that want to force LOW for QA.
+   */
+  quality?: QualityProfile;
+}
+
+export async function initSceneRouter<S extends Scene>(
+  canvas: HTMLCanvasElement,
+  sceneFactory: SceneFactory<S>,
+  options: InitSceneRouterOptions = {},
+): Promise<SceneManager> {
+  const tagged = canvas as ManagedCanvas;
+  const { routeName = '/', quality: forcedQuality } = options;
+
+  // Defensive teardown — see SceneManager docs for why this matters.
   if (tagged[SCENE_MANAGER_KEY]) {
     try {
       tagged[SCENE_MANAGER_KEY]!.destroy();
     } catch (err) {
-      console.warn('[SceneRouter] prior manager destroy threw:', err);
+      console.warn('[kit/astro/router] prior manager destroy threw:', err);
     }
     delete tagged[SCENE_MANAGER_KEY];
   }
 
-  const manager = new SceneManager(canvas);
+  const quality = forcedQuality ?? (await detectQuality());
+  // Surface tier on <body> for any non-JS consumer (CSS hooks, debug
+  // overlays, analytics). Reads as `data-gpu-tier="LOW|MID|HIGH"`.
+  document.body.setAttribute('data-gpu-tier', quality.tier);
+
+  const manager = new SceneManager(canvas, quality);
   tagged[SCENE_MANAGER_KEY] = manager;
-  manager.registerScene('/', (r) => new HomeScene(r));
+  manager.registerScene(routeName, (r) => sceneFactory(r, quality));
 
   manager.start();
-  manager.transitionTo('/').catch((err) => {
-    console.error('[SceneRouter] transitionTo failed:', err);
+  manager.transitionTo(routeName).catch((err) => {
+    console.error('[kit/astro/router] transitionTo failed:', err);
   });
 
   // Proactive cleanup hooks. astro:before-swap fires before a client-side
-  // navigation swaps the DOM (canvas persists, but JS context may re-init).
-  // beforeunload covers hard reload / tab close.
+  // navigation swaps the DOM (canvas persists, but JS context may
+  // re-init). beforeunload covers hard reload / tab close.
   const cleanup = () => {
     if (tagged[SCENE_MANAGER_KEY] === manager) {
       manager.destroy();
@@ -53,4 +89,6 @@ export function initSceneRouter(canvas: HTMLCanvasElement): void {
   };
   document.addEventListener('astro:before-swap', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
+
+  return manager;
 }

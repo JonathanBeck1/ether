@@ -120,7 +120,7 @@ function onPointerLeave(this: HTMLElement) {
   ensureTicking();
 }
 
-export function initProjectTilt(): void {
+export function initCardTilt(): void {
   // Idempotent — tear down previous instance first (safe across Astro
   // view transitions / HMR).
   if (teardown) teardown();
