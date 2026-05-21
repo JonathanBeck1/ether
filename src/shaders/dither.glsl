@@ -1,6 +1,8 @@
 // 8x8 ordered (Bayer) dither matrix — breaks up gradient banding
 // Use: color.rgb += (dither8x8(gl_FragCoord.xy) - 0.5) / 64.0;
 
+precision highp float;
+
 float dither8x8(vec2 position) {
   int x = int(mod(position.x, 8.0));
   int y = int(mod(position.y, 8.0));
