@@ -15,7 +15,8 @@
     "./quality": "./src/quality/index.ts",
     "./astro": "./src/astro/index.ts",
     "./primitives": "./src/primitives/index.ts",
-    "./interactions": "./src/interactions/index.ts"
+    "./interactions": "./src/interactions/index.ts",
+    "./dev": "./src/dev/index.ts"
   },
   "peerDependencies": {
     "three": "^0.184.0",
