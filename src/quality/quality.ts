@@ -103,7 +103,11 @@ export async function detectQuality(): Promise<QualityProfile> {
     rawScore,
     dprCap:             tier === 'LOW' ? 1   : tier === 'MID' ? 1.5 : 2,
     antialias:          tier !== 'LOW',
-    enablePostFX:       tier !== 'LOW',
+    // Postprocessing on ALL tiers — bloom is critical for the violet
+    // rim halo on text/sculpture work. A single bloom pass is cheap
+    // enough that even modern "LOW" tier phones (iPhone 11 base, etc.)
+    // can handle it. Without bloom the brand glow disappears entirely.
+    enablePostFX:       true,
     enableDither:       tier === 'HIGH',
     enableSmoothScroll: tier !== 'LOW' && !isTouch,
     reducedMotion,
