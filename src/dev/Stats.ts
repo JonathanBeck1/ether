@@ -44,6 +44,16 @@ export class Stats {
   private readonly tickBound: (now: number) => void;
   private readonly resizeBound: () => void;
   private mounted = false;
+  /**
+   * Custom rows added via addRow(). Sampled every overlay tick
+   * (~500ms — same cadence as FPS) so a misbehaving sampler can't
+   * dominate the frame.
+   */
+  private readonly customRows: Array<{
+    sampler: () => string;
+    el: HTMLSpanElement;
+  }> = [];
+  private buildRow!: (label: string) => { row: HTMLDivElement; value: HTMLSpanElement };
 
   constructor(manager: SceneManager) {
     this.manager = manager;
@@ -85,6 +95,8 @@ export class Stats {
       r.appendChild(val);
       return { row: r, value: val };
     };
+    // Expose the row builder so addRow() can use the same styling.
+    this.buildRow = row;
 
     const { row: fpsR, value: fpsV } = row('FPS');
     const { row: msR, value: msV } = row('MS');
@@ -123,6 +135,24 @@ export class Stats {
     this.frameCount = 0;
     this.rafId = requestAnimationFrame(this.tickBound);
     this.mounted = true;
+    return this;
+  }
+
+  /**
+   * Append a custom diagnostic row. The sampler is called every
+   * overlay tick (~2 Hz) and its return value is set as the row's
+   * text content. Use for plumbing site-specific state into the
+   * overlay without coupling the kit to your scene types.
+   *
+   *   stats.addRow('DRIFT', () => motion.driftQuat.w.toFixed(3));
+   *   stats.addRow('SNAPS', () => snapCounter.toString());
+   *
+   * Safe to call before or after `mount()`.
+   */
+  addRow(label: string, sampler: () => string): this {
+    const { row, value } = this.buildRow(label);
+    this.customRows.push({ sampler, el: value });
+    this.root.appendChild(row);
     return this;
   }
 
@@ -167,6 +197,15 @@ export class Stats {
       // Refresh DPR + viewport too in case Vite HMR or browser
       // events changed them without firing 'resize'.
       this.refreshStatic();
+      // Sample all custom diagnostic rows.
+      for (const r of this.customRows) {
+        try {
+          r.el.textContent = r.sampler();
+        } catch (err) {
+          r.el.textContent = '!err';
+          if (typeof console !== 'undefined') console.warn('[kit/dev/Stats] custom row sampler threw:', err);
+        }
+      }
     }
     this.rafId = requestAnimationFrame(this.tickBound);
   }
