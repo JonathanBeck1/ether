@@ -101,7 +101,15 @@ export async function detectQuality(): Promise<QualityProfile> {
   cached = {
     tier,
     rawScore,
-    dprCap:             tier === 'LOW' ? 1   : tier === 'MID' ? 1.5 : 2,
+    // DPR cap: even LOW gets 1.5 now. Original LOW=1 was over-cautious
+    // for the 2026 baseline — most "LOW" classifications in 2026 are
+    // modern phones with detect-gpu tier 1 + touch. They handle DPR 1.5
+    // + a single bloom pass easily. DPR=1 was making text and rim
+    // details render soft on retina displays where 1 CSS px maps to
+    // 2-3 device pixels — the visible jaggies are worse than the perf
+    // cost of bumping to 1.5. MSAA stays off on LOW (it's the real
+    // GPU drain), but pixel density gets back.
+    dprCap:             tier === 'LOW' ? 1.5 : tier === 'MID' ? 1.5 : 2,
     antialias:          tier !== 'LOW',
     // Postprocessing on ALL tiers — bloom is critical for the violet
     // rim halo on text/sculpture work. A single bloom pass is cheap
