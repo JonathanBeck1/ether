@@ -57,7 +57,7 @@ tree-shake reliably:
 | `aether/shaders` | `dither.glsl` (via `?raw`) | Reusable GLSL chunks consumed via Vite's `?raw` import. Files are the API. |
 | `aether/interactions` | `initCardTilt` | Resn-style 3D card-tilt with snap-to-zero idle, fine-pointer gate, Astro view-transition rebind. |
 | `aether/loaders` | (empty) | Reserved for KTX2 / Draco / GLB / HDR wrappers when the first GLB-consuming site lands. |
-| `aether/scroll` | (empty) | Reserved for the Lenis ↔ GSAP ScrollTrigger bridge — currently inline in site code; lifts on next site. |
+| `aether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ GSAP ScrollTrigger bridge: a lifecycle wrapper (brand-tuned Lenis options, the `ScrollTrigger.update` wiring, idempotent plugin registration, s→ms raf) + a scroll-progress→callback trigger factory. Construct the bridge only when smooth scroll is enabled. |
 
 ## Typical wiring
 
@@ -128,7 +128,6 @@ Kit provides the engine. Each site provides the art direction.
 
 Add as real needs surface, not speculatively:
 
-- `kit/scroll` — Lenis ↔ GSAP bridge primitive (lift on site #2)
 - `kit/text` — `troika-three-text` MSDF wrapper for crisp display type
 - `kit/loaders` — `KTX2` / `Draco` / `GLB` wrapped loaders + branded
   progress UI
