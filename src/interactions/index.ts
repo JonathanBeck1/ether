@@ -1,4 +1,4 @@
-// @taketwo/kit/interactions — DOM-side micro-interactions.
+// aether/interactions — DOM-side micro-interactions.
 //
 // `initCardTilt()` binds a Resn / Active Theory style 3D-card hover-tilt
 // to every `[data-tilt]` element. Single shared rAF, snap-to-zero idle,

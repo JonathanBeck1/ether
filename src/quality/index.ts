@@ -1,4 +1,4 @@
-// @taketwo/kit/quality — GPU tier detection.
+// aether/quality — GPU tier detection.
 //
 // `detectQuality()` resolves the user's GPU once via `detect-gpu` and
 // returns a `QualityProfile` with one enum (LOW/MID/HIGH) + the

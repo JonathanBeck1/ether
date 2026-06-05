@@ -11,7 +11,7 @@ import type { SceneManager } from '../core/SceneManager';
  *
  * Use:
  *
- *   import { Stats } from '@taketwo/kit/dev';
+ *   import { Stats } from 'aether/dev';
  *   // Anywhere after initSceneRouter() resolves:
  *   const manager = await initSceneRouter(canvas, factory);
  *   if (new URL(location.href).searchParams.has('stats')) {

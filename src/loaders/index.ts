@@ -1,2 +1,2 @@
-// @taketwo/kit/loaders — placeholder barrel. See /kit/README.md for migration plan.
+// aether/loaders — placeholder barrel. See /kit/README.md for migration plan.
 export {};

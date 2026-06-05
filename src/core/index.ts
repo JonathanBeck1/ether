@@ -1,4 +1,4 @@
-// @taketwo/kit/core — engine primitives.
+// aether/core — engine primitives.
 //
 // `SceneManager` owns the renderer + the rAF loop + per-route Scene
 // lifecycle. `BaseScene` is the convenience base class implementing the

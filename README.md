@@ -1,9 +1,9 @@
-# @taketwo/kit
+# aether
 
 TakeTwo's internal WebGL framework. **Not for public consumption — yet.**
 
 Extracted from `clients/taketwo-media/site/` as patterns proved reusable.
-Goal: when client #2 lands, `npm i @taketwo/kit` (or `file:../kit` in a
+Goal: when client #2 lands, `npm i aether` (or `file:../kit` in a
 sibling repo) is a 6-month head start.
 
 ## Status
@@ -17,10 +17,10 @@ is byte-equivalent.
 The site links the kit via `file:../kit` in its `package.json`:
 
 ```json
-"@taketwo/kit": "file:../kit"
+"aether": "file:../kit"
 ```
 
-`npm install` symlinks `site/node_modules/@taketwo/kit → ../../../kit`.
+`npm install` symlinks `site/node_modules/aether → ../../../kit`.
 The package exports raw `.ts` from `src/` — Vite compiles on demand.
 **No build step required for local dev.**
 
@@ -37,7 +37,7 @@ optimizeDeps: {
   // Kit uses Vite-only `?raw` GLSL imports which esbuild's depscan
   // can't parse. Excluding skips pre-bundling and lets Vite's full
   // plugin pipeline handle each request.
-  exclude: ['@taketwo/kit'],
+  exclude: ['aether'],
 },
 ```
 
@@ -48,22 +48,22 @@ tree-shake reliably:
 
 | Module | Exports | What it does |
 |---|---|---|
-| `@taketwo/kit/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene` | Renderer + rAF loop + per-route scene lifecycle. Subclass `BaseScene` for your hero. |
-| `@taketwo/kit/astro` | `initSceneRouter`, `SceneFactory`, `InitSceneRouterOptions` | Persistent-canvas Astro router with `transition:persist` teardown. Pass a scene factory; get a `SceneManager` back. |
-| `@taketwo/kit/quality` | `detectQuality`, `getQuality`, `QualityProfile`, `QualityTier` | GPU tier detection (LOW/MID/HIGH) — DPR cap, MSAA on/off, composer on/off, smooth-scroll on/off. |
-| `@taketwo/kit/postfx` | `DitherEffect`, `createHeroComposer`, `HeroComposerOptions` | 8×8 Bayer dither effect + the canonical bloom+dither composer preset (tuned for dark premium hero scenes). |
-| `@taketwo/kit/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | opentype → SVGLoader → ExtrudeGeometry pipeline, returns per-letter geometries + canonical rest poses. Caller supplies material. |
-| `@taketwo/kit/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader-plane with auto-wired `uTime` + `uAspect`. Build animated backdrops on it. |
-| `@taketwo/kit/shaders` | `dither.glsl` (via `?raw`) | Reusable GLSL chunks consumed via Vite's `?raw` import. Files are the API. |
-| `@taketwo/kit/interactions` | `initCardTilt` | Resn-style 3D card-tilt with snap-to-zero idle, fine-pointer gate, Astro view-transition rebind. |
-| `@taketwo/kit/loaders` | (empty) | Reserved for KTX2 / Draco / GLB / HDR wrappers when the first GLB-consuming site lands. |
-| `@taketwo/kit/scroll` | (empty) | Reserved for the Lenis ↔ GSAP ScrollTrigger bridge — currently inline in site code; lifts on next site. |
+| `aether/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene` | Renderer + rAF loop + per-route scene lifecycle. Subclass `BaseScene` for your hero. |
+| `aether/astro` | `initSceneRouter`, `SceneFactory`, `InitSceneRouterOptions` | Persistent-canvas Astro router with `transition:persist` teardown. Pass a scene factory; get a `SceneManager` back. |
+| `aether/quality` | `detectQuality`, `getQuality`, `QualityProfile`, `QualityTier` | GPU tier detection (LOW/MID/HIGH) — DPR cap, MSAA on/off, composer on/off, smooth-scroll on/off. |
+| `aether/postfx` | `DitherEffect`, `createHeroComposer`, `HeroComposerOptions` | 8×8 Bayer dither effect + the canonical bloom+dither composer preset (tuned for dark premium hero scenes). |
+| `aether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | opentype → SVGLoader → ExtrudeGeometry pipeline, returns per-letter geometries + canonical rest poses. Caller supplies material. |
+| `aether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader-plane with auto-wired `uTime` + `uAspect`. Build animated backdrops on it. |
+| `aether/shaders` | `dither.glsl` (via `?raw`) | Reusable GLSL chunks consumed via Vite's `?raw` import. Files are the API. |
+| `aether/interactions` | `initCardTilt` | Resn-style 3D card-tilt with snap-to-zero idle, fine-pointer gate, Astro view-transition rebind. |
+| `aether/loaders` | (empty) | Reserved for KTX2 / Draco / GLB / HDR wrappers when the first GLB-consuming site lands. |
+| `aether/scroll` | (empty) | Reserved for the Lenis ↔ GSAP ScrollTrigger bridge — currently inline in site code; lifts on next site. |
 
 ## Typical wiring
 
 ```ts
 // site-level boot.ts
-import { initSceneRouter } from '@taketwo/kit/astro';
+import { initSceneRouter } from 'aether/astro';
 import { HomeScene } from './scenes/home/HomeScene';
 
 export function boot(canvas: HTMLCanvasElement) {
@@ -74,11 +74,11 @@ export function boot(canvas: HTMLCanvasElement) {
 }
 
 // site-level HomeScene.ts
-import { BaseScene } from '@taketwo/kit/core';
-import type { QualityProfile } from '@taketwo/kit/quality';
-import { createHeroComposer } from '@taketwo/kit/postfx';
-import { ShaderQuad } from '@taketwo/kit/primitives';
-import { extrudedWord } from '@taketwo/kit/text';
+import { BaseScene } from 'aether/core';
+import type { QualityProfile } from 'aether/quality';
+import { createHeroComposer } from 'aether/postfx';
+import { ShaderQuad } from 'aether/primitives';
+import { extrudedWord } from 'aether/text';
 
 export class HomeScene extends BaseScene {
   constructor(renderer: THREE.WebGLRenderer, quality: QualityProfile) {
@@ -138,6 +138,6 @@ Add as real needs surface, not speculatively:
 - `kit/audio` — Howler wrapper + iOS unlock + mute toggle when a site
   ships with audio
 
-When `@taketwo/kit` has been consumed by two paying client sites
+When `aether` has been consumed by two paying client sites
 unchanged, promote it to its own private GitHub repo and ship via
 GitHub Packages. Until then, `file:../kit` keeps the round-trip instant.
