@@ -33,7 +33,13 @@ export type SceneFactory<S extends Scene> = (
  * to recreate the WebGLRenderer at runtime with different antialias / DPR
  * settings — you can't change MSAA on a live WebGL context. One-shot.
  */
-type ManagedCanvas = HTMLCanvasElement & { __sceneManager?: SceneManager };
+type ManagedCanvas = HTMLCanvasElement & {
+  __sceneManager?: SceneManager;
+  /** In-flight init promise — present while an init is mid-await. Lets a
+   *  second overlapping call return the same manager instead of spawning a
+   *  duplicate render loop. Cleared on teardown so post-navigation re-init runs. */
+  __sceneManagerInit?: Promise<SceneManager>;
+};
 const SCENE_MANAGER_KEY = '__sceneManager' as const;
 
 export interface InitSceneRouterOptions {
@@ -52,43 +58,61 @@ export async function initSceneRouter<S extends Scene>(
   options: InitSceneRouterOptions = {},
 ): Promise<SceneManager> {
   const tagged = canvas as ManagedCanvas;
-  const { routeName = '/', quality: forcedQuality } = options;
 
-  // Defensive teardown — see SceneManager docs for why this matters.
-  if (tagged[SCENE_MANAGER_KEY]) {
-    try {
-      tagged[SCENE_MANAGER_KEY]!.destroy();
-    } catch (err) {
-      console.warn('[kit/astro/router] prior manager destroy threw:', err);
-    }
-    delete tagged[SCENE_MANAGER_KEY];
-  }
+  // Single-flight guard. initSceneRouter is async (it awaits detectQuality),
+  // so two overlapping boot() calls — Astro's ClientRouter re-running the page
+  // script on a transition, the requestIdleCallback trigger, HMR — would BOTH
+  // clear the teardown check below before either tagged a manager, leaving N
+  // concurrent SceneManagers + render loops on one persistent canvas. That
+  // presents as the letters teleporting between layouts every frame. If an
+  // init is already in flight for this canvas, hand back the same one.
+  if (tagged.__sceneManagerInit) return tagged.__sceneManagerInit;
 
-  const quality = forcedQuality ?? (await detectQuality());
-  // Surface tier on <body> for any non-JS consumer (CSS hooks, debug
-  // overlays, analytics). Reads as `data-gpu-tier="LOW|MID|HIGH"`.
-  document.body.setAttribute('data-gpu-tier', quality.tier);
+  const run = (async (): Promise<SceneManager> => {
+    const { routeName = '/', quality: forcedQuality } = options;
 
-  const manager = new SceneManager(canvas, quality);
-  tagged[SCENE_MANAGER_KEY] = manager;
-  manager.registerScene(routeName, (r) => sceneFactory(r, quality));
-
-  manager.start();
-  manager.transitionTo(routeName).catch((err) => {
-    console.error('[kit/astro/router] transitionTo failed:', err);
-  });
-
-  // Proactive cleanup hooks. astro:before-swap fires before a client-side
-  // navigation swaps the DOM (canvas persists, but JS context may
-  // re-init). beforeunload covers hard reload / tab close.
-  const cleanup = () => {
-    if (tagged[SCENE_MANAGER_KEY] === manager) {
-      manager.destroy();
+    // Defensive teardown — see SceneManager docs for why this matters.
+    if (tagged[SCENE_MANAGER_KEY]) {
+      try {
+        tagged[SCENE_MANAGER_KEY]!.destroy();
+      } catch (err) {
+        console.warn('[kit/astro/router] prior manager destroy threw:', err);
+      }
       delete tagged[SCENE_MANAGER_KEY];
     }
-  };
-  document.addEventListener('astro:before-swap', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
 
-  return manager;
+    const quality = forcedQuality ?? (await detectQuality());
+    // Surface tier on <body> for any non-JS consumer (CSS hooks, debug
+    // overlays, analytics). Reads as `data-gpu-tier="LOW|MID|HIGH"`.
+    document.body.setAttribute('data-gpu-tier', quality.tier);
+
+    const manager = new SceneManager(canvas, quality);
+    tagged[SCENE_MANAGER_KEY] = manager;
+    manager.registerScene(routeName, (r) => sceneFactory(r, quality));
+
+    manager.start();
+    manager.transitionTo(routeName).catch((err) => {
+      console.error('[kit/astro/router] transitionTo failed:', err);
+    });
+
+    // Proactive cleanup hooks. astro:before-swap fires before a client-side
+    // navigation swaps the DOM (canvas persists, but JS context may re-init).
+    // beforeunload covers hard reload / tab close. Clearing __sceneManagerInit
+    // lets the next page's boot() build a fresh manager instead of being handed
+    // this (now torn-down) one.
+    const cleanup = () => {
+      if (tagged[SCENE_MANAGER_KEY] === manager) {
+        manager.destroy();
+        delete tagged[SCENE_MANAGER_KEY];
+      }
+      delete tagged.__sceneManagerInit;
+    };
+    document.addEventListener('astro:before-swap', cleanup, { once: true });
+    window.addEventListener('beforeunload', cleanup, { once: true });
+
+    return manager;
+  })();
+
+  tagged.__sceneManagerInit = run;
+  return run;
 }

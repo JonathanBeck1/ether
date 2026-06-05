@@ -1,4 +1,4 @@
-// @taketwo/kit/postfx — postprocessing effects + composer presets.
+// aether/postfx — postprocessing effects + composer presets.
 //
 // `DitherEffect` ships an 8x8 Bayer dither — the cheapest fix for the
 // gradient banding that becomes visible in dark scenes (canvas is mostly

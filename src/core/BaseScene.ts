@@ -67,5 +67,5 @@ export abstract class BaseScene implements Scene {
 }
 
 // Re-export Scene from types so consumers can `import { Scene } from
-// '@taketwo/kit/core'` directly without reaching into ./types.
+// 'aether/core'` directly without reaching into ./types.
 export type { Scene } from './types';
