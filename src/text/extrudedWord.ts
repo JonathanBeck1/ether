@@ -127,7 +127,7 @@ export async function extrudedWord(
   let xOffset = 0;
   for (const char of word) {
     const glyph = font.charToGlyph(char);
-    const advance = glyph.advanceWidth * (fontSize / font.unitsPerEm);
+    const advance = (glyph.advanceWidth ?? 0) * (fontSize / font.unitsPerEm);
     const path = glyph.getPath(xOffset, 0, fontSize);
     const svgPath = path.toPathData(2);
 
