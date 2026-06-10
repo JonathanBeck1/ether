@@ -29,9 +29,11 @@ Two Vite config knobs make the symlinked + raw-`.ts` consumption work
 
 ```ts
 resolve: {
-  // Kit imports e.g. `postprocessing` — without this, Vite resolves
-  // those through kit's REAL path on disk and fails to find peer deps.
-  preserveSymlinks: true,
+  // Force single instances of the kit's peer deps (the site's copies).
+  // Deliberately NOT preserveSymlinks — that pinned the kit at its
+  // node_modules path, which Vite ignores for file-watching, so kit
+  // edits were served stale in dev (no HMR).
+  dedupe: ['three', 'postprocessing', 'opentype.js', 'detect-gpu', 'gsap', 'lenis'],
 },
 optimizeDeps: {
   // Kit uses Vite-only `?raw` GLSL imports which esbuild's depscan
