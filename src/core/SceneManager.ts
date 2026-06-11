@@ -19,6 +19,10 @@ export class SceneManager {
   readonly quality: QualityProfile;
   private scenes = new Map<string, SceneFactory>();
   private activeScene: Scene | null = null;
+  private currentRoute: string | null = null;
+  private pendingRoute: string | null = null;
+  private transitioning = false;
+  private forceNext = false;
   private lastTime = 0;
   private running = false;
   private rafHandle = 0;
@@ -95,21 +99,69 @@ export class SceneManager {
     this.scenes.set(routeName, factory);
   }
 
-  async transitionTo(routeName: string): Promise<void> {
+  /**
+   * Latest-wins transition queue. Calling this while a transition is in
+   * flight retargets it — the loop picks up the newest route once the
+   * current hop settles, so rapid A→B→A converges on the last URL Astro
+   * settled on. Same-route calls are no-ops UNLESS `force` is set:
+   * Astro runs a full body swap even for same-path link clicks, which
+   * detaches every DOM node the live scene's ScrollTriggers hold — the
+   * router forces a real exit→enter so the fresh scene re-couples to
+   * the fresh DOM.
+   *
+   * Hop order: exit old → dispose old → construct + preload next →
+   * activate → enter. The exit runs FIRST so scene resource lifetimes
+   * (Lenis bridge, ScrollTriggers, pointer listeners — created in scene
+   * constructors) are strictly disjoint. Enter is NOT awaited by the
+   * queue: a navigation during a long intro interrupts it via dispose
+   * (scenes kill their intro timelines there).
+   */
+  async transitionTo(
+    routeName: string,
+    options: { force?: boolean } = {},
+  ): Promise<void> {
+    this.pendingRoute = routeName;
+    if (options.force) this.forceNext = true;
+    if (this.transitioning) return;
+    this.transitioning = true;
+    try {
+      while (
+        this.pendingRoute !== null &&
+        (this.forceNext || this.pendingRoute !== this.currentRoute)
+      ) {
+        const target = this.pendingRoute;
+        this.pendingRoute = null;
+        this.forceNext = false;
+        await this.runTransition(target);
+      }
+    } finally {
+      this.transitioning = false;
+    }
+  }
+
+  private async runTransition(routeName: string): Promise<void> {
     const factory = this.scenes.get(routeName);
     if (!factory) {
+      // Unknown route: keep whatever is rendering (mid-session nav to an
+      // unregistered page) or stay dark (cold load on one).
       console.warn(`[SceneManager] No scene registered for: ${routeName}`);
       return;
     }
-    const next = factory(this.renderer);
-    if (next.preload) await next.preload();
-
     if (this.activeScene) {
       await this.activeScene.exitTransition();
       this.activeScene.dispose();
+      this.activeScene = null;
     }
+    const next = factory(this.renderer);
+    if (next.preload) await next.preload();
     this.activeScene = next;
-    await this.activeScene.enterTransition();
+    this.currentRoute = routeName;
+    next.enterTransition().catch((err) => {
+      console.error(
+        `[SceneManager] enterTransition failed for ${routeName}:`,
+        err,
+      );
+    });
   }
 
   start(): void {
