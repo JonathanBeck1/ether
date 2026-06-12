@@ -35,12 +35,29 @@ export interface QualityProfile {
   rawScore: number;
   /** Pixel-ratio cap. Renderer should `min(window.devicePixelRatio, dprCap)`. */
   dprCap: number;
-  /** Whether the renderer should request MSAA antialias. */
+  /**
+   * Whether the renderer should request CONTEXT MSAA. Only meaningful
+   * when no composer runs: post-processing renders into textures that
+   * bypass the canvas framebuffer, making this flag visually dead (and
+   * a memory cost). With `enablePostFX` true, real edge AA comes from
+   * `msaaSamples` instead.
+   */
   antialias: boolean;
   /** Whether to build the post-processing composer at all. */
   enablePostFX: boolean;
-  /** Whether to include dither (the most expensive pass after bloom). */
+  /**
+   * Whether to include dither. NOT expensive — it's a handful of ALU
+   * ops merged into the SAME fullscreen pass as bloom. Without it the
+   * dark-field gradients band visibly, worst on mobile OLED, where the
+   * posterization reads as wrong colors.
+   */
   enableDither: boolean;
+  /**
+   * MSAA sample count for the composer's render targets (WebGL2) — the
+   * antialiasing that actually reaches the screen when post-processing
+   * is on. 0 disables. Cheap on mobile tile GPUs.
+   */
+  msaaSamples: number;
   /** Whether the page should run Lenis smooth-scroll. */
   enableSmoothScroll: boolean;
   /** True if the user has prefers-reduced-motion. Mirrored here for one-stop reads. */
@@ -107,16 +124,27 @@ export async function detectQuality(): Promise<QualityProfile> {
     // + a single bloom pass easily. DPR=1 was making text and rim
     // details render soft on retina displays where 1 CSS px maps to
     // 2-3 device pixels — the visible jaggies are worse than the perf
-    // cost of bumping to 1.5. MSAA stays off on LOW (it's the real
-    // GPU drain), but pixel density gets back.
+    // cost of bumping to 1.5.
     dprCap:             tier === 'LOW' ? 1.5 : tier === 'MID' ? 1.5 : 2,
-    antialias:          tier !== 'LOW',
+    // Context MSAA is dead weight whenever the composer runs (which is
+    // every tier now) — post-processing renders into textures that
+    // bypass the canvas framebuffer. Real edge AA = msaaSamples below.
+    antialias:          false,
     // Postprocessing on ALL tiers — bloom is critical for the violet
     // rim halo on text/sculpture work. A single bloom pass is cheap
     // enough that even modern "LOW" tier phones (iPhone 11 base, etc.)
     // can handle it. Without bloom the brand glow disappears entirely.
     enablePostFX:       true,
-    enableDither:       tier === 'HIGH',
+    // Dither on ALL tiers: it shares bloom's fullscreen pass (a few
+    // ALU ops, effectively free) and without it the dark-field
+    // gradients band hard — worst on mobile OLED, where posterization
+    // reads as wrong colors. (An earlier comment called this "the most
+    // expensive pass after bloom" — measured wrong; retired.)
+    enableDither:       true,
+    // Composer-target MSAA — the AA that actually reaches the screen.
+    // Tile-based mobile GPUs resolve MSAA nearly free; 2× on MID keeps
+    // extruded letter edges clean at DPR 1.5 on 3× screens.
+    msaaSamples:        tier === 'HIGH' ? 4 : tier === 'MID' ? 2 : 0,
     enableSmoothScroll: tier !== 'LOW' && !isTouch,
     reducedMotion,
   };
