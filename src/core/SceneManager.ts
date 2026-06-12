@@ -60,9 +60,16 @@ export class SceneManager {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.dprCap));
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.lastResizeW = window.innerWidth;
-    this.lastResizeH = window.innerHeight;
+    // Size the drawing buffer to the canvas's CSS box, and NEVER write
+    // inline styles (`updateStyle: false`): the stylesheet owns the box
+    // (100lvh fixed overlay). The default updateStyle pinned an inline
+    // pixel height over the CSS, so the iOS URL bar collapsing grew the
+    // viewport while the canvas stayed boot-sized — a permanent black
+    // band at the bottom — and the ResizeObserver below watched a box
+    // that could no longer change.
+    this.renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+    this.lastResizeW = canvas.clientWidth;
+    this.lastResizeH = canvas.clientHeight;
 
     this.tickBound = this.tick.bind(this);
     this.handleResizeBound = this.handleResize.bind(this);
@@ -206,12 +213,16 @@ export class SceneManager {
       clearTimeout(this.resizeDebounceTimer);
     }
     this.resizeDebounceTimer = window.setTimeout(() => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
+      // The canvas's CSS box is the source of truth (the observer
+      // watches it; the stylesheet drives it) — window.inner* diverges
+      // from it whenever mobile browser chrome is in play.
+      const canvas = this.renderer.domElement;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
       if (w === this.lastResizeW && h === this.lastResizeH) return;
       this.lastResizeW = w;
       this.lastResizeH = h;
-      this.renderer.setSize(w, h);
+      this.renderer.setSize(w, h, false);
       if (this.activeScene) {
         this.activeScene.camera.aspect = w / h;
         this.activeScene.camera.updateProjectionMatrix();
