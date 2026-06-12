@@ -26,8 +26,15 @@ export type ScrollBridgeOptions = NonNullable<ConstructorParameters<typeof Lenis
  *
  * Smooth scroll is optional: construct only when the quality tier enables it
  * (touch / low-end run native scroll, which ScrollTrigger reads by default).
- * Lifecycle: construct in the scene ctor → `raf(time)` each frame in tick →
- * `scrollTo(0, { immediate: true })` in preload → `destroy()` in dispose.
+ *
+ * Lifecycle: construct at `enterTransition` START (never the scene
+ * constructor) → `raf(time)` each frame in tick → `destroy()` in
+ * exit/dispose. Lenis intercepts wheel input from the moment it exists
+ * but only moves the page when `raf` is pumped — and a scene's tick only
+ * runs once it is the manager's activeScene, AFTER preload. A
+ * constructor-built bridge therefore eats every wheel event for the
+ * preload window and dumps the accumulated delta as a lurch when ticking
+ * starts. Before enter, native scroll handles input fine.
  */
 export class ScrollBridge {
   readonly lenis: Lenis;
