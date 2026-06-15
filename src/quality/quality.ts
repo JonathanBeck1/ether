@@ -74,10 +74,12 @@ export async function detectQuality(): Promise<QualityProfile> {
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Hover-fine = mouse/trackpad. No hover = touch primary. We treat touch as
-  // a strong hint toward LOW because (a) most touch devices are mid-tier or
-  // worse, (b) Lenis on touch fights iOS native scroll, and (c) it's the
-  // single biggest perf cliff in the codebase.
+  // Hover-fine = mouse/trackpad. No hover = touch primary. Used only to
+  // nudge tier-1 GPUs down to LOW. (We no longer gate smooth-scroll on
+  // touch: Lenis 1.3.23 `syncTouch` smooths ON TOP of native iOS
+  // momentum rather than hijacking it, so the old "Lenis fights iOS"
+  // concern is obsolete — touch now gets the same buttery scroll-to-3D
+  // wiring as desktop. See enableSmoothScroll below.)
   const isTouch =
     typeof window !== 'undefined' &&
     !window.matchMedia('(hover: hover)').matches;
@@ -145,7 +147,13 @@ export async function detectQuality(): Promise<QualityProfile> {
     // Tile-based mobile GPUs resolve MSAA nearly free; 2× on MID keeps
     // extruded letter edges clean at DPR 1.5 on 3× screens.
     msaaSamples:        tier === 'HIGH' ? 4 : tier === 'MID' ? 2 : 0,
-    enableSmoothScroll: tier !== 'LOW' && !isTouch,
+    // Smooth scroll on every tier except LOW (weak GPUs can't spare the
+    // extra rAF). Touch INCLUDED now — Lenis syncTouch gives phones the
+    // same rAF-synced scroll position desktop has, which is what feeds
+    // ScrollTrigger a smooth per-frame value (the buttery scroll-to-3D
+    // feel). Without it, touch bound the 3D to iOS's stepped native
+    // scroll and read as choppy.
+    enableSmoothScroll: tier !== 'LOW',
     reducedMotion,
   };
   return cached;

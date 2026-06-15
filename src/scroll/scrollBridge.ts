@@ -25,7 +25,10 @@ export type ScrollBridgeOptions = NonNullable<ConstructorParameters<typeof Lenis
  * `raf` conversion (our render loop ticks in seconds; Lenis wants ms).
  *
  * Smooth scroll is optional: construct only when the quality tier enables it
- * (touch / low-end run native scroll, which ScrollTrigger reads by default).
+ * (low-end runs native scroll, which ScrollTrigger reads by default). Touch
+ * gets the bridge via Lenis `syncTouch` — smoothing on top of native iOS
+ * momentum, not a hijack — so touch feeds ScrollTrigger the same rAF-synced
+ * position desktop does.
  *
  * Lifecycle: construct at `enterTransition` START (never the scene
  * constructor) → `raf(time)` each frame in tick → `destroy()` in
