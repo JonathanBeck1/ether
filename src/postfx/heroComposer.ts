@@ -14,6 +14,12 @@ export interface HeroComposerOptions {
   enableDither?: boolean;
 }
 
+export interface HeroComposer {
+  composer: EffectComposer;
+  bloom: BloomEffect;
+  dither?: DitherEffect;
+}
+
 /**
  * Canonical TakeTwo hero postprocessing chain. Suitable for any dark
  * premium hero scene with a single bright accent color (the violet
@@ -39,7 +45,7 @@ export function createHeroComposer(
   scene: THREE.Scene,
   camera: THREE.Camera,
   options: HeroComposerOptions = {},
-): EffectComposer {
+): HeroComposer {
   const { enableDither = true } = options;
   const composer = new EffectComposer(renderer);
 
@@ -53,10 +59,10 @@ export function createHeroComposer(
     kernelSize: KernelSize.MEDIUM,
   });
 
-  const effects: Effect[] = [bloom];
-  if (enableDither) effects.push(new DitherEffect());
+  const dither = enableDither ? new DitherEffect() : undefined;
+  const effects: Effect[] = dither ? [bloom, dither] : [bloom];
 
   composer.addPass(new EffectPass(camera, ...effects));
 
-  return composer;
+  return { composer, bloom, dither };
 }

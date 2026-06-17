@@ -13,4 +13,5 @@ export { DitherEffect } from './DitherEffect';
 export {
   createHeroComposer,
   type HeroComposerOptions,
+  type HeroComposer,
 } from './heroComposer';

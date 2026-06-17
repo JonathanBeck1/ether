@@ -123,8 +123,11 @@ Kit provides the engine. Each site provides the art direction.
   already does well.
 - **No R3F integration.** The site's renderer is imperative three; R3F
   would force a rewrite.
-- **No editor / GUI layer.** Active Theory's Hydra GUI is a year of
-  work for a team — solo, not worth it. Skip.
+- **No full editor / scene-graph GUI.** Active Theory's Hydra is a year
+  of team work — not worth it solo. The kit DOES ship a lightweight,
+  `?tweak`-gated live-parameter panel (`aether/dev` → `Tweaks`) for
+  art-direction: bind uniforms/effects, tune live, export a paste-ready
+  `constants.ts` block. A tweak panel, not a Hydra.
 
 ## Roadmap
 
