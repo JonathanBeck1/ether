@@ -51,9 +51,9 @@ tree-shake reliably:
 | Module | Exports | What it does |
 |---|---|---|
 | `aether/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene` | Renderer + rAF loop + per-route scene lifecycle. Subclass `BaseScene` for your hero. |
-| `aether/astro` | `initSceneRouter`, `SceneFactory`, `InitSceneRouterOptions` | Persistent-canvas Astro router with `transition:persist` teardown. Pass a scene factory; get a `SceneManager` back. |
-| `aether/quality` | `detectQuality`, `getQuality`, `QualityProfile`, `QualityTier` | GPU tier detection (LOW/MID/HIGH) — DPR cap, MSAA on/off, composer on/off, smooth-scroll on/off. |
-| `aether/postfx` | `DitherEffect`, `createHeroComposer`, `HeroComposerOptions` | 8×8 Bayer dither effect + the canonical bloom+dither composer preset (tuned for dark premium hero scenes). |
+| `aether/astro` | `initSceneRouter`, `SceneFactory`, `SceneRoutes`, `InitSceneRouterOptions` | Persistent-canvas Astro router. Pass a routes map (`{ '/': factory, '/web': factory }`); it resolves the initial route from the address bar and drives scene transitions on `astro:before-swap` — the manager and GL context survive every swap (teardown only on `beforeunload`). Every internal page must have a registered scene: an unknown route keeps the previous scene rendering (and its scroll coupling) across the swap. |
+| `aether/quality` | `detectQuality`, `getQuality`, `QualityProfile`, `QualityTier` | GPU tier detection (LOW/MID/HIGH) — DPR cap, composer-target MSAA samples (`msaaSamples` — the AA that actually reaches the screen; the context `antialias` flag is dead once a composer runs), dither (all tiers — it's free and kills OLED banding), smooth-scroll on/off. |
+| `aether/postfx` | `DitherEffect`, `createHeroComposer`, `HeroComposerOptions` | 8×8 Bayer dither effect + the canonical bloom+dither composer preset (tuned for dark premium hero scenes). Pass `multisampling: quality.msaaSamples` for real edge AA on the composer's render targets (WebGL2). |
 | `aether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | opentype → SVGLoader → ExtrudeGeometry pipeline, returns per-letter geometries + canonical rest poses. Caller supplies material. |
 | `aether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader-plane with auto-wired `uTime` + `uAspect`. Build animated backdrops on it. |
 | `aether/shaders` | `dither.glsl` (via `?raw`) | Reusable GLSL chunks consumed via Vite's `?raw` import. Files are the API. |
@@ -67,12 +67,17 @@ tree-shake reliably:
 // site-level boot.ts
 import { initSceneRouter } from 'aether/astro';
 import { HomeScene } from './scenes/home/HomeScene';
+import { WebScene } from './scenes/web/WebScene';
 
 export function boot(canvas: HTMLCanvasElement) {
-  return initSceneRouter(
-    canvas,
-    (renderer, quality) => new HomeScene(renderer, quality),
-  );
+  // All routes register up front — a new page's own scripts run after
+  // the swap, too late to register the factory the transition needs.
+  // Navigation is a scene transition (exit → dispose → preload →
+  // enter), never a manager teardown.
+  return initSceneRouter(canvas, {
+    '/': (renderer, quality) => new HomeScene(renderer, quality),
+    '/web': (renderer, quality) => new WebScene(renderer, quality),
+  });
 }
 
 // site-level HomeScene.ts

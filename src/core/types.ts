@@ -23,7 +23,22 @@ export interface Scene {
   composer?: EffectComposer;
 
   preload?(): Promise<void>;
+  /**
+   * Play the scene's entrance. May be INTERRUPTED mid-animation by a
+   * navigation: the manager does not await it, and `dispose()` can run
+   * while it plays — kill intro timelines in `dispose()` so their
+   * onComplete callbacks can't fire against a dead scene.
+   */
   enterTransition(): Promise<void>;
+  /**
+   * Play the scene's exit. Called inside the `astro:before-swap`
+   * dispatch — everything BEFORE the first `await` runs ahead of the
+   * DOM swap and Astro's scroll handling. Detach scroll/DOM-coupled
+   * state (ScrollTriggers, Lenis bridge) synchronously there; the
+   * awaited remainder (e.g. a fade to dark) overlaps the swap on the
+   * persistent canvas. Leave the framebuffer dark: the last rendered
+   * frame holds until the next scene's first render.
+   */
   exitTransition(): Promise<void>;
   tick(time: number, deltaTime: number): void;
   /** Optional resize hook called from SceneManager when viewport changes. */
