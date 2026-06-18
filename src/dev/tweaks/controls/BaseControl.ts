@@ -29,26 +29,31 @@ export abstract class BaseControl<T extends TweakValue> implements Control {
   private listeners: Array<[EventTarget, string, EventListener]> = [];
   private destroyed = false;
 
+  /** Read-only rows (monitors) skip the reset button entirely — there's no
+   *  writable slot to reset, so the affordance would be a no-op. */
+  protected readonly readOnly: boolean;
+
   private readonly labelEl: HTMLElement;
   private readonly dotEl: HTMLElement;
-  private readonly resetEl: HTMLButtonElement;
+  private readonly resetEl: HTMLButtonElement | null;
 
-  constructor(desc: BaseDescriptor<T>, step = 0) {
+  constructor(desc: BaseDescriptor<T>, step = 0, readOnly = false) {
     this.desc = desc;
     this.path = desc.path;
     this.step = step;
+    this.readOnly = readOnly;
     this.capturedDefault = desc.enabledUntil ? desc.default : desc.get();
 
     const row = el('div', { class: 'tw-row' });
     this.labelEl = el('span', { class: 'tw-label', text: desc.label ?? humanize(desc.path) });
     this.dotEl = el('span', { class: 'tw-dot' });
     this.widget = el('div', { class: 'tw-widget' });
-    this.resetEl = el('button', { class: 'tw-reset', text: '↺', attrs: { type: 'button', 'aria-label': 'Reset' } });
+    this.resetEl = readOnly ? null : el('button', { class: 'tw-reset', text: '↺', attrs: { type: 'button', 'aria-label': 'Reset' } });
 
     row.appendChild(this.labelEl);
     row.appendChild(this.dotEl);
     row.appendChild(this.widget);
-    row.appendChild(this.resetEl);
+    if (this.resetEl) row.appendChild(this.resetEl);
     this.el = row;
   }
 
@@ -63,7 +68,7 @@ export abstract class BaseControl<T extends TweakValue> implements Control {
   mount(ctx: ControlContext): void {
     this.ctx = ctx;
     this.buildWidget();
-    this.on(this.resetEl, 'click', () => this.reset());
+    if (this.resetEl) this.on(this.resetEl, 'click', () => this.reset());
     this.refresh(this.getValue());
   }
 

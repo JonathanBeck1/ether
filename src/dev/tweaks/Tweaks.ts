@@ -241,7 +241,11 @@ export class Tweaks {
     const urlPayload = new URL(location.href).searchParams.get('tweak');
     const fromUrl = decodeURLState(urlPayload);
     const restored = fromUrl ?? readState(key);
-    this.restoredKeys = Object.keys(restored);
+    // Intersect with this scene's registered paths so the 'overrides active'
+    // chip reflects only overrides that actually apply here — a home-only key
+    // persisted under a shared store must not light the chip on /work.
+    const registered = new Set(this.registry.entries().map((e) => e.control.path));
+    this.restoredKeys = Object.keys(restored).filter((k) => registered.has(k));
     if (this.restoredKeys.length) this.store.restore(restored);
 
     const panel = readPanelState(key);

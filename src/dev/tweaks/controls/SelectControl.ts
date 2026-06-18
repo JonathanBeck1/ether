@@ -75,6 +75,14 @@ export class SelectControl extends BaseControl<string | number> {
     });
 
     this.on(this.trigger, 'click', () => (this.open ? this.closeList() : this.openList()));
+    // Escape closes the open list and returns focus to the trigger.
+    this.on(this.trigger, 'keydown', ((e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.open) {
+        e.preventDefault();
+        this.closeList();
+        this.trigger?.focus();
+      }
+    }) as EventListener);
     // Outside-click dismiss — registered once (gated by this.open) so reopening
     // never grows the ledger; destroy() removes it via super.
     this.on(document, 'pointerdown', this.onDocDown as EventListener);

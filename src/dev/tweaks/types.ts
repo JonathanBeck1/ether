@@ -5,7 +5,8 @@
 export type TweakValue = number | boolean | string | number[]; // string = hex color OR enum value; number[] = interval [min,max] / vector [x,y(,z)]
 
 export interface ExportTarget {
-  constant: string; // e.g. 'COLOR_VIOLET', 'FRESNEL_EXP_DESKTOP'
+  constant?: string; // scalar target, e.g. 'COLOR_VIOLET', 'FRESNEL_EXP_DESKTOP'
+  constants?: string[]; // array values → one constant per element (e.g. ['CAMERA_Z_START', 'CAMERA_Z_END'])
   shape: 'three-color' | 'number';
   needsPromotion?: boolean; // true → constant has no constants.ts home yet (export adds a promotion note)
 }

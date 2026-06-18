@@ -27,12 +27,21 @@ interface Line {
   text: string;
 }
 
-function lineFor(target: ExportTarget, value: TweakValue, step: number): string {
+/** One export line per emitted constant. Arrays emit one line per element when
+ *  the target carries `constants` (string[]); arrays without it emit nothing —
+ *  never Number()-coerce an array into a NaN literal. */
+function linesFor(target: ExportTarget, value: TweakValue, step: number): Line[] {
+  if (Array.isArray(value)) {
+    if (!target.constants) return [];
+    return target.constants.map((c, i) => ({ constant: c, text: `export const ${c} = ${numberToLiteral(value[i], step)};` }));
+  }
+  const { constant } = target;
+  if (!constant) return [];
   if (target.shape === 'three-color') {
     const hex = (hexNormalize(String(value)) ?? '#000000').slice(1);
-    return `export const ${target.constant} = new THREE.Color(0x${hex});`;
+    return [{ constant, text: `export const ${constant} = new THREE.Color(0x${hex});` }];
   }
-  return `export const ${target.constant} = ${numberToLiteral(Number(value), step)};`;
+  return [{ constant, text: `export const ${constant} = ${numberToLiteral(Number(value), step)};` }];
 }
 
 function sectionIndex(constant: string): number {
@@ -50,9 +59,9 @@ export function buildConstantsBlock(diff: DiffMap, entries: RegistryEntry[]): st
   for (const path of Object.keys(diff)) {
     const entry = byPath.get(path);
     if (!entry?.export) continue;
-    const line: Line = { constant: entry.export.constant, text: lineFor(entry.export, diff[path], entry.step) };
-    if (entry.export.needsPromotion) promotion.push(line);
-    else sectioned.push(line);
+    const lines = linesFor(entry.export, diff[path], entry.step);
+    if (entry.export.needsPromotion) promotion.push(...lines);
+    else sectioned.push(...lines);
   }
 
   const blocks: string[] = [];

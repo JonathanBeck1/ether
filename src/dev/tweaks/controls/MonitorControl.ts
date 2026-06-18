@@ -23,7 +23,7 @@ export class MonitorControl extends BaseControl<number> {
   private poly!: SVGPolylineElement;
 
   constructor(desc: MonitorDescriptor) {
-    super(desc, 0);
+    super(desc, 0, true);
     this.cfg = desc;
   }
 

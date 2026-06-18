@@ -18,7 +18,7 @@ export class SceneManager {
   readonly renderer: THREE.WebGLRenderer;
   readonly quality: QualityProfile;
   private scenes = new Map<string, SceneFactory>();
-  private activeScene: Scene | null = null;
+  private _activeScene: Scene | null = null;
   private currentRoute: string | null = null;
   private pendingRoute: string | null = null;
   private transitioning = false;
@@ -106,6 +106,11 @@ export class SceneManager {
     this.scenes.set(routeName, factory);
   }
 
+  /** The scene currently rendering, or null mid-transition / before first activation. */
+  get activeScene(): Scene | null {
+    return this._activeScene;
+  }
+
   /**
    * Latest-wins transition queue. Calling this while a transition is in
    * flight retargets it — the loop picks up the newest route once the
@@ -154,14 +159,14 @@ export class SceneManager {
       console.warn(`[SceneManager] No scene registered for: ${routeName}`);
       return;
     }
-    if (this.activeScene) {
-      await this.activeScene.exitTransition();
-      this.activeScene.dispose();
-      this.activeScene = null;
+    if (this._activeScene) {
+      await this._activeScene.exitTransition();
+      this._activeScene.dispose();
+      this._activeScene = null;
     }
     const next = factory(this.renderer);
     if (next.preload) await next.preload();
-    this.activeScene = next;
+    this._activeScene = next;
     this.currentRoute = routeName;
     next.enterTransition().catch((err) => {
       console.error(
@@ -190,12 +195,12 @@ export class SceneManager {
     const deltaTime = (now - this.lastTime) / 1000;
     this.lastTime = now;
 
-    if (this.activeScene) {
-      this.activeScene.tick(now / 1000, deltaTime);
-      if (this.activeScene.composer) {
-        this.activeScene.composer.render(deltaTime);
+    if (this._activeScene) {
+      this._activeScene.tick(now / 1000, deltaTime);
+      if (this._activeScene.composer) {
+        this._activeScene.composer.render(deltaTime);
       } else {
-        this.renderer.render(this.activeScene.scene, this.activeScene.camera);
+        this.renderer.render(this._activeScene.scene, this._activeScene.camera);
       }
     }
     this.rafHandle = requestAnimationFrame(this.tickBound);
@@ -223,11 +228,11 @@ export class SceneManager {
       this.lastResizeW = w;
       this.lastResizeH = h;
       this.renderer.setSize(w, h, false);
-      if (this.activeScene) {
-        this.activeScene.camera.aspect = w / h;
-        this.activeScene.camera.updateProjectionMatrix();
-        this.activeScene.composer?.setSize(w, h);
-        this.activeScene.onResize?.(w, h);
+      if (this._activeScene) {
+        this._activeScene.camera.aspect = w / h;
+        this._activeScene.camera.updateProjectionMatrix();
+        this._activeScene.composer?.setSize(w, h);
+        this._activeScene.onResize?.(w, h);
       }
     }, 150);
   }
@@ -277,8 +282,8 @@ export class SceneManager {
     const canvas = this.renderer.domElement;
     canvas.removeEventListener('webglcontextlost', this.handleContextLostBound);
     canvas.removeEventListener('webglcontextrestored', this.handleContextRestoredBound);
-    this.activeScene?.dispose();
-    this.activeScene = null;
+    this._activeScene?.dispose();
+    this._activeScene = null;
     this.renderer.dispose();
   }
 }

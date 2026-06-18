@@ -32,7 +32,10 @@ export class VectorControl extends BaseControl<number[]> {
 
     // XY pad.
     this.pad = el('div', { class: 'tw-xy', style: { width: `${PAD}px`, height: `${PAD}px` } });
-    this.handle = el('div', { class: 'tw-xy-handle' });
+    this.handle = el('div', {
+      class: 'tw-xy-handle',
+      attrs: { role: 'slider', 'aria-valuemin': String(this.cfg.min), 'aria-valuemax': String(this.cfg.max) },
+    });
     this.pad.appendChild(this.handle);
 
     // Per-axis readout-scrub rows (x, y, and z when axes === 3).
@@ -41,7 +44,7 @@ export class VectorControl extends BaseControl<number[]> {
     for (let i = 0; i < this.cfg.axes; i++) {
       const row = el('div', { class: 'tw-vector-field' });
       row.appendChild(el('span', { class: 'tw-axis-tag', text: labels[i] }));
-      const readout = el('span', { class: 'tw-readout', attrs: { tabindex: '0' } });
+      const readout = el('span', { class: 'tw-readout' });
       this.readouts.push(readout);
       row.appendChild(readout);
       fields.appendChild(row);
@@ -113,8 +116,14 @@ export class VectorControl extends BaseControl<number[]> {
     this.handle.style.left = `${this.norm(this.vals[0]) * 100}%`;
     this.handle.style.top = `${(1 - this.norm(this.vals[1])) * 100}%`;
     for (let i = 0; i < this.cfg.axes; i++) {
-      this.readouts[i].textContent = this.cfg.format ? this.cfg.format(this.vals[i]) : formatNumber(this.vals[i], this.cfg.step);
+      this.readouts[i].textContent = this.fmt(this.vals[i]);
     }
+    this.handle.setAttribute('aria-valuenow', String(this.vals[0]));
+    this.handle.setAttribute('aria-valuetext', this.vals.slice(0, this.cfg.axes).map((v) => this.fmt(v)).join(', '));
+  }
+
+  private fmt(v: number): string {
+    return this.cfg.format ? this.cfg.format(v) : formatNumber(v, this.cfg.step);
   }
 
   // ── XY pad drag ────────────────────────────────────────────────────

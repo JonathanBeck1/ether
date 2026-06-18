@@ -39,16 +39,17 @@ export class IntervalControl extends BaseControl<number[]> {
     });
     this.track = el('div', { class: 'tw-slider-track' });
     this.fill = el('div', { class: 'tw-slider-fill' });
-    const loThumb = el('div', { class: 'tw-thumb', attrs: { tabindex: '0', role: 'slider' } });
-    const hiThumb = el('div', { class: 'tw-thumb', attrs: { tabindex: '0', role: 'slider' } });
+    const aria = { tabindex: '0', role: 'slider', 'aria-valuemin': String(this.cfg.min), 'aria-valuemax': String(this.cfg.max) };
+    const loThumb = el('div', { class: 'tw-thumb', attrs: aria });
+    const hiThumb = el('div', { class: 'tw-thumb', attrs: aria });
     this.thumbs = [loThumb, hiThumb];
     this.track.appendChild(this.fill);
     this.track.appendChild(loThumb);
     this.track.appendChild(hiThumb);
     this.slider.appendChild(this.track);
 
-    const loReadout = el('span', { class: 'tw-readout', attrs: { tabindex: '0' } });
-    const hiReadout = el('span', { class: 'tw-readout', attrs: { tabindex: '0' } });
+    const loReadout = el('span', { class: 'tw-readout' });
+    const hiReadout = el('span', { class: 'tw-readout' });
     this.readouts = [loReadout, hiReadout];
 
     const readoutCol = el('div', { class: 'tw-interval-readouts' });
@@ -144,6 +145,10 @@ export class IntervalControl extends BaseControl<number[]> {
     }
     this.readouts[0].textContent = this.format(this.lo);
     this.readouts[1].textContent = this.format(this.hi);
+    this.thumbs[0].setAttribute('aria-valuenow', String(this.lo));
+    this.thumbs[1].setAttribute('aria-valuenow', String(this.hi));
+    this.thumbs[0].setAttribute('aria-valuetext', this.format(this.lo));
+    this.thumbs[1].setAttribute('aria-valuetext', this.format(this.hi));
   }
 
   private format(v: number): string {
@@ -181,6 +186,9 @@ export class IntervalControl extends BaseControl<number[]> {
     const { min, max } = this.cfg;
     const t = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
     const v = min + t * (max - min);
+    // Collapsed band (lo === hi): pick by which way the pointer pulls so the
+    // band can re-open in either direction from a track drag.
+    if (this.lo === this.hi) return v >= this.lo ? 1 : 0;
     return Math.abs(v - this.lo) <= Math.abs(v - this.hi) ? 0 : 1;
   }
 
