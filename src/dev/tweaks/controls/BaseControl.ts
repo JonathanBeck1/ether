@@ -96,6 +96,10 @@ export abstract class BaseControl<T extends TweakValue> implements Control {
     if (typeof cur === 'string' && typeof def === 'string') {
       return (hexNormalize(cur) ?? cur.toLowerCase()) !== (hexNormalize(def) ?? def.toLowerCase());
     }
+    if (Array.isArray(cur) && Array.isArray(def)) {
+      if (cur.length !== def.length) return true;
+      return cur.some((n, i) => Math.abs(n - (def[i] as number)) > this.step / 2);
+    }
     return cur !== def;
   }
 

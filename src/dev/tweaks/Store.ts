@@ -53,6 +53,11 @@ export class Store {
     if (typeof cur === 'string' && typeof def === 'string') {
       return (hexNormalize(cur) ?? cur.toLowerCase()) !== (hexNormalize(def) ?? def.toLowerCase());
     }
+    if (Array.isArray(cur) && Array.isArray(def)) {
+      const tol = (this.steps[path] ?? 0) / 2;
+      if (cur.length !== def.length) return true;
+      return cur.some((n, i) => Math.abs(n - (def[i] as number)) > tol);
+    }
     return cur !== def;
   }
 

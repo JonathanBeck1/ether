@@ -7,8 +7,14 @@ export type {
   TweakValue,
   ExportTarget,
   DiffMap,
+  Descriptor,
   BaseDescriptor,
   SliderDescriptor,
   ColorDescriptor,
   ToggleDescriptor,
+  SelectDescriptor,
+  IntervalDescriptor,
+  MonitorDescriptor,
+  VectorDescriptor,
 } from './types';
+export type { MonitorInput } from './Registry';

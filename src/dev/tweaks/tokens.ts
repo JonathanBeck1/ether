@@ -113,6 +113,42 @@ export const SCOPED_CSS = `${FONT_FACE}
 [data-kit-tweaks] .tw-toggle-knob { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--tw-text); transition: transform 180ms ease; }
 [data-kit-tweaks] .tw-toggle.tw-on .tw-toggle-knob { transform: translateX(16px); }
 
+/* ── Select — segmented pills (≤4) ───────────────────────── */
+[data-kit-tweaks] .tw-segments { display: flex; flex: 1 1 auto; gap: 2px; padding: 2px; background: var(--tw-groove); border-radius: 6px; }
+[data-kit-tweaks] .tw-segment { flex: 1 1 0; min-width: 0; padding: 3px 6px; border: 0; border-radius: 4px; background: none; color: var(--tw-muted); cursor: pointer; font: inherit; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 120ms ease, color 120ms ease; }
+[data-kit-tweaks] .tw-segment:hover { color: var(--tw-text); }
+[data-kit-tweaks] .tw-segment.tw-on { background: var(--tw-accent); color: var(--tw-black); }
+
+/* ── Select — bespoke dropdown (>4) ──────────────────────── */
+[data-kit-tweaks] .tw-select { position: relative; flex: 1 1 auto; min-width: 0; }
+[data-kit-tweaks] .tw-select-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border: 1px solid var(--tw-hairline); border-radius: 4px; background: var(--tw-groove); color: var(--tw-text); cursor: pointer; font: inherit; text-align: left; }
+[data-kit-tweaks] .tw-select-trigger::after { content: '▾'; color: var(--tw-muted); margin-left: 8px; }
+[data-kit-tweaks] .tw-select-trigger:hover { border-color: var(--tw-accent); }
+[data-kit-tweaks] .tw-select-list { position: absolute; top: calc(100% + 2px); left: 0; right: 0; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; background: var(--tw-navy); border: 1px solid var(--tw-hairline); border-radius: 4px; padding: 4px; display: none; flex-direction: column; gap: 2px; z-index: 2; }
+[data-kit-tweaks] .tw-select-list.tw-open { display: flex; }
+[data-kit-tweaks] .tw-select-option { padding: 4px 8px; border: 0; border-radius: 3px; background: none; color: var(--tw-text); cursor: pointer; font: inherit; text-align: left; }
+[data-kit-tweaks] .tw-select-option:hover { background: var(--tw-accent); color: var(--tw-black); }
+
+/* ── Interval — dual-thumb band ──────────────────────────── */
+[data-kit-tweaks] .tw-interval .tw-thumb { left: 0; }
+[data-kit-tweaks] .tw-interval-readouts { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+[data-kit-tweaks] .tw-interval-readouts .tw-readout { min-width: 44px; }
+
+/* ── Monitor — readout + sparkline (read-only) ───────────── */
+[data-kit-tweaks] .tw-spark { flex: 1 1 auto; min-width: 0; height: 18px; }
+[data-kit-tweaks] .tw-spark-line { fill: none; stroke: var(--tw-accent); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+[data-kit-tweaks] .tw-readout.tw-monitor { cursor: default; color: var(--tw-muted); }
+
+/* ── Vector — XY pad + per-axis scrubs ───────────────────── */
+[data-kit-tweaks] .tw-vector { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; }
+[data-kit-tweaks] .tw-xy { position: relative; flex: 0 0 auto; background: var(--tw-groove); border: 1px solid var(--tw-hairline); border-radius: 4px; touch-action: none; cursor: crosshair; background-image: linear-gradient(var(--tw-hairline) 1px, transparent 1px), linear-gradient(90deg, var(--tw-hairline) 1px, transparent 1px); background-size: 50% 50%; background-position: center; }
+[data-kit-tweaks] .tw-xy-handle { position: absolute; top: 50%; left: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--tw-text); transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(255,255,255,.25), 0 0 12px 2px var(--tw-accent); transition: box-shadow 120ms ease, transform 120ms ease; }
+[data-kit-tweaks] .tw-xy.tw-grabbing .tw-xy-handle { transform: translate(-50%, -50%) scale(1.25); box-shadow: 0 0 0 1px rgba(255,255,255,.35), 0 0 18px 4px var(--tw-accent); }
+[data-kit-tweaks] .tw-vector-fields { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+[data-kit-tweaks] .tw-vector-field { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+[data-kit-tweaks] .tw-axis-tag { color: var(--tw-muted); text-transform: uppercase; }
+[data-kit-tweaks] .tw-vector-field .tw-readout { min-width: 44px; }
+
 /* ── Footer + chrome (built by chrome task; vocabulary frozen here) ── */
 [data-kit-tweaks] .tw-footer { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--tw-hairline); flex-wrap: wrap; }
 [data-kit-tweaks] .tw-btn { background: none; border: 1px solid var(--tw-hairline); border-radius: 4px; color: var(--tw-text); cursor: pointer; font: inherit; padding: 4px 8px; letter-spacing: 0.04em; }

@@ -2,16 +2,29 @@ import type {
   ColorDescriptor,
   Control,
   ControlContext,
+  Descriptor,
   ExportTarget,
   GroupConfig,
+  IntervalDescriptor,
+  MonitorDescriptor,
+  SelectDescriptor,
   SliderDescriptor,
   ToggleDescriptor,
   TweakValue,
+  VectorDescriptor,
 } from './types';
 import type { Store } from './Store';
 import { SliderControl } from './controls/SliderControl';
 import { ColorControl } from './controls/ColorControl';
 import { ToggleControl } from './controls/ToggleControl';
+import { SelectControl } from './controls/SelectControl';
+import { IntervalControl } from './controls/IntervalControl';
+import { MonitorControl } from './controls/MonitorControl';
+import { VectorControl } from './controls/VectorControl';
+
+/** Input shape for addMonitor — read-only, so it omits the writable contract
+ *  fields (set/default/export) the adder fills with no-ops. */
+export type MonitorInput = Pick<MonitorDescriptor, 'path' | 'label' | 'get' | 'unit' | 'format' | 'enabledUntil'>;
 
 export interface RegistryEntry {
   control: Control;
@@ -26,6 +39,9 @@ export interface RegistryEntry {
   export: ExportTarget | null;
   /** Step precision — feeds numberToLiteral so export literals match readouts. */
   step: number;
+  /** Read-only monitor: refreshed from get() each read-back tick, but never
+   *  store-registered, persisted, exported, or counted as changed. */
+  monitor?: boolean;
 }
 
 export interface GroupRecord {
@@ -57,7 +73,7 @@ export class Registry {
   }
 
   /** @internal — called by GroupBuilder for each descriptor. */
-  add(group: GroupRecord, control: Control, desc: SliderDescriptor | ColorDescriptor | ToggleDescriptor, step: number): void {
+  add(group: GroupRecord, control: Control, desc: Descriptor, step: number): void {
     if (this.paths.has(desc.path)) throw new Error(`[tweaks] duplicate path: ${desc.path}`);
     this.paths.add(desc.path);
 
@@ -90,6 +106,28 @@ export class Registry {
       step,
     });
   }
+
+  /** @internal — read-only monitor registration. Skips the store entirely (no
+   *  dirty/persist/export) and wires a no-op ControlContext; the shell refreshes
+   *  it from get() on the read-back loop. */
+  addMonitor(group: GroupRecord, control: Control, desc: MonitorDescriptor): void {
+    if (this.paths.has(desc.path)) throw new Error(`[tweaks] duplicate path: ${desc.path}`);
+    this.paths.add(desc.path);
+
+    const noop = (): void => {};
+    control.mount({ accent: group.config.accent, beginEdit: noop, live: noop, commit: noop });
+
+    group.entries.push({
+      control,
+      group,
+      get: desc.get as () => TweakValue,
+      set: noop,
+      enabledUntil: desc.enabledUntil,
+      export: null,
+      step: 0,
+      monitor: true,
+    });
+  }
 }
 
 export class GroupBuilder {
@@ -110,6 +148,34 @@ export class GroupBuilder {
 
   addToggle(desc: ToggleDescriptor): this {
     this.registry.add(this.record, new ToggleControl(desc), desc, 0);
+    return this;
+  }
+
+  addSelect(desc: SelectDescriptor): this {
+    this.registry.add(this.record, new SelectControl(desc), desc, 0);
+    return this;
+  }
+
+  addInterval(desc: IntervalDescriptor): this {
+    this.registry.add(this.record, new IntervalControl(desc), desc, desc.step);
+    return this;
+  }
+
+  /** Read-only live readout + sparkline. No set/default/export — the input is
+   *  reduced; the registry fills the contract with no-ops and skips the store. */
+  addMonitor(input: MonitorInput): this {
+    const desc: MonitorDescriptor = {
+      ...input,
+      set: () => {},
+      default: input.get(),
+      export: null,
+    };
+    this.registry.addMonitor(this.record, new MonitorControl(desc), desc);
+    return this;
+  }
+
+  addVector(desc: VectorDescriptor): this {
+    this.registry.add(this.record, new VectorControl(desc), desc, desc.step);
     return this;
   }
 }

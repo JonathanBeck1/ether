@@ -2,7 +2,7 @@
 // Controls, chrome, store, registry and the scene-side bindings all bind to
 // exactly these shapes.
 
-export type TweakValue = number | boolean | string; // string = hex color OR enum value
+export type TweakValue = number | boolean | string | number[]; // string = hex color OR enum value; number[] = interval [min,max] / vector [x,y(,z)]
 
 export interface ExportTarget {
   constant: string; // e.g. 'COLOR_VIOLET', 'FRESNEL_EXP_DESKTOP'
@@ -32,7 +32,38 @@ export interface ColorDescriptor extends BaseDescriptor<string> {} // value is '
 
 export interface ToggleDescriptor extends BaseDescriptor<boolean> {}
 
-export type Descriptor = SliderDescriptor | ColorDescriptor | ToggleDescriptor;
+export interface SelectDescriptor extends BaseDescriptor<string | number> {
+  options: Record<string, string | number>; // { label: value } — segmented pills ≤4, dropdown >4
+}
+
+export interface IntervalDescriptor extends BaseDescriptor<number[]> {
+  min: number;
+  max: number;
+  step: number;
+  format?: (v: number) => string;
+} // value is [lo, hi] — a min/max band; thumbs can't cross
+
+export interface MonitorDescriptor extends BaseDescriptor<number> {
+  unit?: string;
+  format?: (v: number) => string;
+} // READ-ONLY: get() + sparkline; no set() write path (registered non-editable)
+
+export interface VectorDescriptor extends BaseDescriptor<number[]> {
+  min: number;
+  max: number;
+  step: number;
+  axes: 2 | 3; // 2 → XY pad; 3 → XY pad + a z slider
+  format?: (v: number) => string;
+} // value is [x, y] or [x, y, z]
+
+export type Descriptor =
+  | SliderDescriptor
+  | ColorDescriptor
+  | ToggleDescriptor
+  | SelectDescriptor
+  | IntervalDescriptor
+  | MonitorDescriptor
+  | VectorDescriptor;
 
 // ─── Panel construction ──────────────────────────────────────────────
 

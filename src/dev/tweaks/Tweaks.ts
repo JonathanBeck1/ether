@@ -256,6 +256,10 @@ export class Tweaks {
    *  gated paths (A5) until their gate opens in the read-back loop. */
   private seedControls(): void {
     for (const e of this.registry.entries()) {
+      if (e.monitor) {
+        e.control.refresh(e.get()); // read-only: seed from the live value, no store, no scene write
+        continue;
+      }
       const v = this.store.get(e.control.path);
       e.control.refresh(v);
       const open = !e.enabledUntil || e.enabledUntil();
@@ -269,6 +273,7 @@ export class Tweaks {
   /** Re-sync every widget from the store after a restore/undo, honoring gates. */
   private resyncFromStore(): void {
     for (const e of this.registry.entries()) {
+      if (e.monitor) continue; // read-only: not in the store, the read-back loop keeps it fresh
       const v = this.store.get(e.control.path);
       e.control.refresh(v);
       const open = !e.enabledUntil || e.enabledUntil();
@@ -443,6 +448,11 @@ export class Tweaks {
       for (const e of this.registry.entries()) {
         const ctrl = e.control;
 
+        if (e.monitor) {
+          if (!e.enabledUntil || e.enabledUntil()) ctrl.refresh(e.get()); // always push a sample
+          continue;
+        }
+
         if (e.enabledUntil) {
           const open = e.enabledUntil();
           const was = this.gateState.get(e) ?? false;
@@ -518,5 +528,8 @@ export class Tweaks {
 function valuesEqual(a: TweakValue, b: TweakValue): boolean {
   if (typeof a === 'number' && typeof b === 'number') return formatNumber(a, 1e-6) === formatNumber(b, 1e-6);
   if (typeof a === 'string' && typeof b === 'string') return a.toLowerCase() === b.toLowerCase();
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((n, i) => formatNumber(n, 1e-6) === formatNumber(b[i] as number, 1e-6));
+  }
   return a === b;
 }
