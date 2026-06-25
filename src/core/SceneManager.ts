@@ -152,10 +152,12 @@ export class SceneManager {
   }
 
   private async runTransition(routeName: string): Promise<void> {
-    const factory = this.scenes.get(routeName);
+    // Exact route, else the '*' fallback (registered for 404 / unmatched
+    // routes so they get a backdrop instead of a black canvas).
+    const factory = this.scenes.get(routeName) ?? this.scenes.get('*');
     if (!factory) {
-      // Unknown route: keep whatever is rendering (mid-session nav to an
-      // unregistered page) or stay dark (cold load on one).
+      // No exact route and no fallback registered: keep whatever is
+      // rendering (mid-session nav) or stay dark (cold load on one).
       console.warn(`[SceneManager] No scene registered for: ${routeName}`);
       return;
     }
