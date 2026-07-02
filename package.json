@@ -14,6 +14,7 @@
     "./loaders": "./src/loaders/index.ts",
     "./quality": "./src/quality/index.ts",
     "./astro": "./src/astro/index.ts",
+    "./panel": "./src/panel/index.ts",
     "./primitives": "./src/primitives/index.ts",
     "./interactions": "./src/interactions/index.ts",
     "./dev": "./src/dev/index.ts"
