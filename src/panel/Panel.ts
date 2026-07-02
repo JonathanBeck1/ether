@@ -47,6 +47,10 @@ export interface PanelOptions {
    * instead of a smooth render floating in a pixel world.
    */
   resolutionScale?: number;
+  /** Render every Nth rAF frame (default 1 = every frame). 2 halves the
+   *  GPU cost — visually identical for slow shaders that upscale
+   *  pixelated. Scheduling and dt accounting stay per-frame. */
+  frameInterval?: number;
   /** Skip the boot ramp and never animate DPR (default false). */
   reducedMotion?: boolean;
   /** Boot ramp DPR fractions of the target, coarsest first. */
@@ -104,6 +108,7 @@ class PanelImpl implements PanelHandle {
     this.opts = {
       dprCap: opts.dprCap ?? 1.5,
       resolutionScale: opts.resolutionScale ?? 1,
+      frameInterval: opts.frameInterval ?? 1,
       reducedMotion: opts.reducedMotion ?? false,
       bootSteps: opts.bootSteps ?? DEFAULT_BOOT_STEPS,
       bootStepMs: opts.bootStepMs ?? 140,
@@ -207,13 +212,17 @@ class PanelImpl implements PanelHandle {
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight, false);
   }
 
+  private frameCount = 0;
+
   private readonly tick = (now: number): void => {
     if (this.disposed || !this.running) return;
     const dt = (now - this.lastTime) / 1000;
     this.lastTime = now;
     if (this.sceneHooks && this.renderer) {
       this.sceneHooks.tick(now / 1000, dt);
-      this.renderer.render(this.sceneHooks.scene, this.sceneHooks.camera);
+      if (++this.frameCount % this.opts.frameInterval === 0) {
+        this.renderer.render(this.sceneHooks.scene, this.sceneHooks.camera);
+      }
     }
     this.rafHandle = requestAnimationFrame(this.tick);
   };

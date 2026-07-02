@@ -21,6 +21,10 @@ export interface Scene {
   camera: THREE.PerspectiveCamera;
   /** If set, replaces direct `renderer.render` with `composer.render`. */
   composer?: EffectComposer;
+  /** Set false for park scenes (routes where the canvas is hidden behind
+   *  an opaque DOM world): tick still runs, but no GPU render is issued —
+   *  a full-DPR framebuffer behind an opaque page is pure waste. */
+  readonly renders?: boolean;
 
   preload?(): Promise<void>;
   /**

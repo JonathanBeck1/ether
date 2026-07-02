@@ -223,7 +223,7 @@ export class SceneManager {
       // canvas. Only the GPU render calls are skipped (they'd no-op and
       // spam console errors on a dead context).
       this._activeScene.tick(now / 1000, deltaTime);
-      if (!this.contextLost) {
+      if (!this.contextLost && this._activeScene.renders !== false) {
         if (this._activeScene.composer) {
           this._activeScene.composer.render(deltaTime);
         } else {
