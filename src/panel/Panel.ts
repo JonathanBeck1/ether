@@ -40,6 +40,13 @@ export type PanelSceneFactory = (
 export interface PanelOptions {
   /** Pixel-ratio cap. Panels are accents, not heroes. Default 1.5. */
   dprCap?: number;
+  /**
+   * Render-resolution multiplier (default 1). Below 1 the buffer renders
+   * small and the canvas upscales it — with `image-rendering: pixelated`
+   * kept on, the feed reads as chunky pixels (a diegetic low-res monitor)
+   * instead of a smooth render floating in a pixel world.
+   */
+  resolutionScale?: number;
   /** Skip the boot ramp and never animate DPR (default false). */
   reducedMotion?: boolean;
   /** Boot ramp DPR fractions of the target, coarsest first. */
@@ -96,6 +103,7 @@ class PanelImpl implements PanelHandle {
     this.factory = factory;
     this.opts = {
       dprCap: opts.dprCap ?? 1.5,
+      resolutionScale: opts.resolutionScale ?? 1,
       reducedMotion: opts.reducedMotion ?? false,
       bootSteps: opts.bootSteps ?? DEFAULT_BOOT_STEPS,
       bootStepMs: opts.bootStepMs ?? 140,
@@ -180,14 +188,21 @@ class PanelImpl implements PanelHandle {
       window.setTimeout(() => {
         if (this.disposed || !this.renderer) return;
         this.applySize(fraction);
-        if (i === steps.length - 1) this.canvas.style.imageRendering = '';
+        // A sub-1 resolutionScale keeps pixelated upscaling permanently —
+        // the chunky feed IS the look; only full-res panels resolve smooth.
+        if (i === steps.length - 1 && this.opts.resolutionScale >= 1) {
+          this.canvas.style.imageRendering = '';
+        }
       }, i * this.opts.bootStepMs);
     });
   }
 
   private applySize(dprFraction = 1): void {
     if (!this.renderer) return;
-    const dpr = Math.min(window.devicePixelRatio, this.opts.dprCap) * dprFraction;
+    const dpr =
+      Math.min(window.devicePixelRatio, this.opts.dprCap) *
+      this.opts.resolutionScale *
+      dprFraction;
     this.renderer.setPixelRatio(Math.max(dpr, 0.02));
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight, false);
   }
