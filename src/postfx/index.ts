@@ -7,8 +7,10 @@
 //
 // `createHeroComposer(renderer, scene, camera, opts?)` returns the
 // canonical TakeTwo bloom+dither composer. Tuned for dark premium hero
-// scenes with one bright accent color. Skip on LOW tier, drop dither on
-// MID. See heroComposer.ts for the rationale on bloom values.
+// scenes with one bright accent color. Runs on EVERY quality tier (the
+// brand glow is non-negotiable); tiers differ via the `multisampling`
+// option, not by dropping passes. See heroComposer.ts for the rationale
+// on bloom values.
 export { DitherEffect } from './DitherEffect';
 export {
   createHeroComposer,

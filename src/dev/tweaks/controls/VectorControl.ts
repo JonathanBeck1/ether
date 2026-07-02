@@ -73,6 +73,9 @@ export class VectorControl extends BaseControl<number[]> {
             this.ctx.live(this.vals.slice());
           },
           onEnd: () => this.commitEdit(this.vals.slice()),
+          // No click-to-type on axis readouts — a sub-threshold tap must
+          // still close the edit or read-back freezes for this row.
+          onCancel: () => this.cancelEdit(),
         }),
       );
     }

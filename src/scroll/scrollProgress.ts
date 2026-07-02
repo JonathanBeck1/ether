@@ -4,8 +4,14 @@ import { ensureScrollTriggerRegistered } from './scrollBridge';
 export interface ScrollProgressOptions {
   /** ScrollTrigger `end` (e.g. `'+=60%'`, `'bottom bottom'`, a number). */
   end: string | number;
-  /** ScrollTrigger `scrub` smoothing in seconds, or `true`. */
-  scrub: number | boolean;
+  /**
+   * ScrollTrigger `scrub`. NOTE: on an onUpdate-only trigger (which is what
+   * this factory creates) a numeric scrub provides NO smoothing — GSAP only
+   * builds its scrub tween for an attached `animation`, and `onProgress`
+   * always receives raw progress. Consumers wanting eased motion must
+   * smooth in their own tick loop. Optional; omit it.
+   */
+  scrub?: number | boolean;
   /** ScrollTrigger `trigger`. Default `'body'` (full-page progress). */
   trigger?: Element | string;
   /** ScrollTrigger `start`. Default `'top top'`. */
@@ -30,8 +36,9 @@ export interface ScrollProgressTrigger {
  * Registers the ScrollTrigger plugin on first use, so this also works on the
  * native-scroll path (no `ScrollBridge` required).
  *
- * @param onProgress called every scroll frame with the trigger's progress
- *                   (0..1). Keep it cheap — it runs on the scroll thread.
+ * @param onProgress called on every ScrollTrigger update (main thread) with
+ *                   the trigger's RAW progress (0..1). Keep it cheap. No
+ *                   smoothing happens here — see the `scrub` option note.
  */
 export function createScrollProgress(
   onProgress: (progress: number) => void,

@@ -76,6 +76,7 @@ export class SliderControl extends BaseControl<number> {
         this.ctx.live(v);
       },
       onEnd: () => this.commitEdit(this.value),
+      onCancel: () => this.cancelEdit(),
       onClick: () => this.openInput(),
     });
   }
@@ -219,6 +220,7 @@ export class SliderControl extends BaseControl<number> {
   }
 
   private commitInput(raw: string): void {
+    if (!this.input) return; // Escape already closed it — don't double-commit on the trailing blur
     const parsed = Number(raw);
     if (Number.isFinite(parsed)) {
       this.beginEdit();

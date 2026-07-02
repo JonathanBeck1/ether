@@ -138,6 +138,15 @@ export abstract class BaseControl<T extends TweakValue> implements Control {
     this.listeners.push([target, type, handler]);
   }
 
+  /** Abandon an open gesture WITHOUT committing: clears the editing flag so
+   *  the read-back loop resumes syncing this control. The pre-edit snapshot
+   *  ctx.beginEdit() captured is simply abandoned — the store only turns
+   *  snapshots into undo entries on commit, and the next beginEdit
+   *  overwrites it. Use for click-through gestures and Escape paths. */
+  protected cancelEdit(): void {
+    this.editing = false;
+  }
+
   protected beginEdit(): void {
     this.editing = true;
     this.ctx.beginEdit();

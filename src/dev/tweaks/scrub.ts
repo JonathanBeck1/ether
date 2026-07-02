@@ -13,6 +13,11 @@ export interface ScrubOptions {
   onStart(): void; // → control.beginEdit
   onScrub(value: number): void; // → control.live (every move)
   onEnd(): void; // → control.commit (once per gesture)
+  /** Gesture resolved as a CLICK (< CLICK_PX travel): the value was restored
+   *  to its gesture-start state and no commit will fire — clear edit state
+   *  without an undo entry (→ control.cancelEdit). Falls back to onEnd when
+   *  absent so the edit NEVER stays open. */
+  onCancel?(): void;
   onClick?(): void; // < CLICK_PX travel → focus the field for keyboard entry
 }
 
@@ -62,8 +67,21 @@ export function attachScrub(el: HTMLElement, opts: ScrubOptions): () => void {
     if (!active) return;
     const click = travel < CLICK_PX;
     exit();
-    if (click) opts.onClick?.();
-    else opts.onEnd();
+    if (click) {
+      // A click is value-neutral: sub-threshold jitter may still have
+      // scrubbed ±1 step via onMove — restore the gesture-start value,
+      // close the edit WITHOUT a commit (no undo entry for a no-op), then
+      // hand off to the click action (focus-to-type). Previously this
+      // branch never ended the edit at all: isEditing stuck true and the
+      // read-back loop skipped the control forever.
+      // Restore START exactly (no quantize): a click on a value that was
+      // typed off-grid must not silently snap it to the step grid.
+      if (accumPx !== 0) opts.onScrub(clamp(start, min, max));
+      (opts.onCancel ?? opts.onEnd)();
+      opts.onClick?.();
+    } else {
+      opts.onEnd();
+    }
   };
 
   const onCancel = (): void => {

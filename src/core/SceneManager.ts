@@ -31,6 +31,9 @@ export class SceneManager {
   private lastResizeW = 0;
   private lastResizeH = 0;
   private contextLost = false;
+  /** Set by destroy(); cancels any in-flight transition so a disposed
+   *  manager can't construct a zombie scene on a dead render loop. */
+  private destroyed = false;
   private readonly tickBound: (now: number) => void;
   private readonly handleResizeBound: () => void;
   private readonly handleContextLostBound: (e: Event) => void;
@@ -44,9 +47,10 @@ export class SceneManager {
     // remember to flip it back before shipping.
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      // Antialias toggled by quality tier. On LOW, MSAA is the single
-      // biggest GPU cost on mobile and the visual loss is acceptable
-      // because we're already DPR-pinned to 1.
+      // Context MSAA is dead weight whenever a composer runs (every tier
+      // now) — post-processing renders into textures that bypass the
+      // canvas framebuffer. Real edge AA comes from the composer's
+      // msaaSamples; quality.antialias is false across the board.
       antialias: quality.antialias,
       alpha: false,
       // 'low-power' on LOW: trades raw perf for thermal headroom on
@@ -132,12 +136,14 @@ export class SceneManager {
     routeName: string,
     options: { force?: boolean } = {},
   ): Promise<void> {
+    if (this.destroyed) return;
     this.pendingRoute = routeName;
     if (options.force) this.forceNext = true;
     if (this.transitioning) return;
     this.transitioning = true;
     try {
       while (
+        !this.destroyed &&
         this.pendingRoute !== null &&
         (this.forceNext || this.pendingRoute !== this.currentRoute)
       ) {
@@ -166,8 +172,27 @@ export class SceneManager {
       this._activeScene.dispose();
       this._activeScene = null;
     }
+    if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
     const next = factory(this.renderer);
+    // Sync the fresh scene to the canvas's CSS box before it renders.
+    // BaseScene seeds camera.aspect from window.inner*, which diverges
+    // from the canvas box whenever mobile browser chrome is in play —
+    // without this, a scene constructed mid-session (URL bar collapsed)
+    // renders at the wrong aspect until the next resize event.
+    const canvas = this.renderer.domElement;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    if (w > 0 && h > 0) {
+      next.camera.aspect = w / h;
+      next.camera.updateProjectionMatrix();
+      next.composer?.setSize(w, h);
+      // Same trio the resize handler fires — the scene's own responsive
+      // tuning (portrait bumps, hero re-fit) must also seed from the
+      // canvas box, not the window it read in its constructor.
+      next.onResize?.(w, h);
+    }
     if (next.preload) await next.preload();
+    if (this.destroyed) { next.dispose(); return; }
     this._activeScene = next;
     this.currentRoute = routeName;
     next.enterTransition().catch((err) => {
@@ -187,22 +212,23 @@ export class SceneManager {
 
   private tick(now: number): void {
     if (!this.running) return;
-    // While the context is lost, don't try to render — it'll spam
-    // console errors and the calls just no-op anyway. Keep the rAF
-    // ticking so we resume cleanly on contextrestored.
-    if (this.contextLost) {
-      this.rafHandle = requestAnimationFrame(this.tickBound);
-      return;
-    }
     const deltaTime = (now - this.lastTime) / 1000;
     this.lastTime = now;
 
     if (this._activeScene) {
+      // Scene tick runs even while the context is lost: it's CPU-side math
+      // (drift lerps, uniform values) AND it pumps the scene's ScrollBridge
+      // raf. Skipping it froze Lenis-owned scrolling entirely on context
+      // loss — a lost context became an unscrollable page, not just a blank
+      // canvas. Only the GPU render calls are skipped (they'd no-op and
+      // spam console errors on a dead context).
       this._activeScene.tick(now / 1000, deltaTime);
-      if (this._activeScene.composer) {
-        this._activeScene.composer.render(deltaTime);
-      } else {
-        this.renderer.render(this._activeScene.scene, this._activeScene.camera);
+      if (!this.contextLost) {
+        if (this._activeScene.composer) {
+          this._activeScene.composer.render(deltaTime);
+        } else {
+          this.renderer.render(this._activeScene.scene, this._activeScene.camera);
+        }
       }
     }
     this.rafHandle = requestAnimationFrame(this.tickBound);
@@ -269,6 +295,7 @@ export class SceneManager {
    * three.js's internal GPU resources without killing the GL context.
    */
   destroy(): void {
+    this.destroyed = true; // cancels any in-flight transitionTo drain
     this.running = false;
     if (this.rafHandle) {
       cancelAnimationFrame(this.rafHandle);

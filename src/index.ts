@@ -1,10 +1,10 @@
 /**
  * aether — root barrel.
  *
- * Empty in Phase 1. Each migration phase fills one or more sub-modules
- * (see /kit/README.md for the migration plan). Prefer importing from
- * specific entry points (`aether/core`, `aether/postfx`,
- * etc.) over the root barrel — bundler tree-shaking is reliable across
- * tools when you target a sub-export.
+ * Deliberately empty: the kit is consumed ONLY through its sub-exports
+ * (`aether/core`, `aether/astro`, `aether/postfx`, `aether/scroll`,
+ * `aether/quality`, `aether/dev`, `aether/interactions`, `aether/text`,
+ * `aether/primitives`) — bundler tree-shaking is reliable across tools
+ * when you target a sub-export. See /kit/README.md for the module map.
  */
 export {};

@@ -7,19 +7,21 @@
  * `hardwareConcurrency` elsewhere — read `getQuality()` and branch on the
  * tier.
  *
- * Three tiers, picked for what the rest of the engine can toggle cheaply:
+ * Three tiers, picked for what the rest of the engine can toggle cheaply
+ * (the numbers below mirror the profile constructed at the bottom of this
+ * file — update BOTH when tuning):
  *
  *   LOW   - bottom-tier integrated GPUs (older iPhones, Chromebooks, base
- *           Android). DPR pinned to 1, no MSAA, NO post-processing composer
- *           (raw renderer.render), no smooth-scroll bridge (let the OS do
- *           native scroll). Goal: hold 30fps without melting the device.
+ *           Android). DPR capped 1.5, composer with bloom + dither (the
+ *           brand glow is non-negotiable), NO composer MSAA, native scroll
+ *           (no Lenis bridge). Goal: hold 30fps without melting the device.
  *
- *   MID   - mid-range mobile / older desktop. DPR clamped to 1.5, MSAA on,
- *           composer with bloom only (no dither). Goal: 60fps with most of
- *           the visual identity intact.
+ *   MID   - mid-range mobile / older desktop. DPR capped 1.5, composer with
+ *           bloom + dither, 2× composer MSAA, smooth scroll on. Goal: 60fps
+ *           with the full visual identity.
  *
  *   HIGH  - everything else (recent desktop, M-series Macs, flagship phones).
- *           Full quality: DPR 2, MSAA, full bloom + dither.
+ *           DPR 2, 4× composer MSAA, bloom + dither, smooth scroll.
  *
  * Why we don't sniff UA: spoofed strings, lying iPads, etc. detect-gpu has a
  * vetted benchmark per GPU model + a fallback fingerprint.
@@ -31,7 +33,8 @@ export type QualityTier = 'LOW' | 'MID' | 'HIGH';
 
 export interface QualityProfile {
   tier: QualityTier;
-  /** 0..1, lower = weaker GPU. Useful for analytics/debug only. */
+  /** detect-gpu's raw fps benchmark for the detected GPU (0 when unknown).
+   *  NOT normalized — useful for analytics/debug only. */
   rawScore: number;
   /** Pixel-ratio cap. Renderer should `min(window.devicePixelRatio, dprCap)`. */
   dprCap: number;
@@ -113,9 +116,14 @@ export async function detectQuality(): Promise<QualityProfile> {
   }
 
   // Reduced-motion users get downgraded one tier (HIGH→MID, MID→LOW, LOW→LOW)
-  // — they explicitly asked for less stuff happening.
-  if (reducedMotion && tier === 'HIGH') tier = 'MID';
-  if (reducedMotion && tier === 'MID') tier = 'LOW';
+  // — they explicitly asked for less stuff happening. Must be else-if: two
+  // sequential ifs took HIGH→MID→LOW in one pass, double-downgrading
+  // reduced-motion users on high-end GPUs (softer DPR + no MSAA + native
+  // scroll on exactly the machines that could afford the quality).
+  if (reducedMotion) {
+    if (tier === 'HIGH') tier = 'MID';
+    else if (tier === 'MID') tier = 'LOW';
+  }
 
   cached = {
     tier,

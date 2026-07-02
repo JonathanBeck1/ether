@@ -351,6 +351,15 @@ export class ColorControl extends BaseControl<string> {
             this.rgbEditing[i] = false;
             setChannel(channelValue(hsvToRgb(this.hsv), i), true);
           },
+          onCancel: () => {
+            // Click-to-focus: no commit is coming from the scrub gesture, so
+            // clear BOTH flags here — rgbEditing[i] otherwise leaked true
+            // (nothing in the typed/blur path resets it) and the read-back
+            // loop stopped syncing this field forever. The focused-field
+            // guard keeps read-back from stomping the input while typing.
+            this.rgbEditing[i] = false;
+            this.cancelEdit();
+          },
           onClick: () => {
             field.focus();
             field.select();

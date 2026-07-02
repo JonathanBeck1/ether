@@ -84,6 +84,9 @@ export class IntervalControl extends BaseControl<number[]> {
             this.ctx.live(this.read());
           },
           onEnd: () => this.commitEdit(this.read()),
+          // No click-to-type on interval readouts — a sub-threshold tap
+          // must still close the edit or read-back freezes for this row.
+          onCancel: () => this.cancelEdit(),
         }),
       );
     });

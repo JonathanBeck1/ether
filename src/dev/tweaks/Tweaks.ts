@@ -513,6 +513,19 @@ export class Tweaks {
   private handleKeyDown(e: KeyboardEvent): void {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && (e.key === 'z' || e.key === 'Z')) {
+      // Text fields keep NATIVE undo — both the panel's own type-to-edit
+      // inputs and, critically, any host-page form. This listener is on
+      // window (the panel floats over a live site); without the guard a
+      // ?tweak session hijacked Cmd+Z inside the page's inputs and
+      // rolled back scene params instead of the user's typing.
+      const t = e.target as HTMLElement | null;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        (t !== null && t.isContentEditable)
+      ) {
+        return;
+      }
       e.preventDefault();
       if (e.shiftKey) this.store.redo();
       else this.store.undo();
