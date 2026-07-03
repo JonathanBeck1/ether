@@ -223,7 +223,15 @@ export class SceneManager {
       // canvas. Only the GPU render calls are skipped (they'd no-op and
       // spam console errors on a dead context).
       this._activeScene.tick(now / 1000, deltaTime);
-      if (!this.contextLost && this._activeScene.renders !== false) {
+      // domElement.width guard: a route swap can CSS-hide the canvas
+      // (e.g. /web parks it) while the OUTGOING scene's exit fade is
+      // still rendering — drawing into the zero-size framebuffer spams
+      // GL_INVALID_FRAMEBUFFER_OPERATION every frame of the fade.
+      if (
+        !this.contextLost &&
+        this._activeScene.renders !== false &&
+        this.renderer.domElement.width > 0
+      ) {
         if (this._activeScene.composer) {
           this._activeScene.composer.render(deltaTime);
         } else {
