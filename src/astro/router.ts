@@ -11,6 +11,7 @@ import { detectQuality, type QualityProfile } from '../quality/quality';
 export type SceneFactory<S extends Scene> = (
   renderer: THREE.WebGLRenderer,
   quality: QualityProfile,
+  route?: string,
 ) => S;
 
 /**
@@ -112,8 +113,17 @@ export async function initSceneRouter(
 
     const manager = new SceneManager(canvas, quality);
     tagged[SCENE_MANAGER_KEY] = manager;
+    // One wrapper per UNIQUE factory: two routes sharing a factory must
+    // register the same function object, or the manager's same-world
+    // comparison (the retarget path) can never match.
+    const wrappers = new Map<SceneFactory<Scene>, (r: THREE.WebGLRenderer, route?: string) => Scene>();
     for (const [route, factory] of Object.entries(routes)) {
-      manager.registerScene(normalizeRoute(route), (r) => factory(r, quality));
+      let wrapped = wrappers.get(factory);
+      if (!wrapped) {
+        wrapped = (r, routeName) => factory(r, quality, routeName);
+        wrappers.set(factory, wrapped);
+      }
+      manager.registerScene(normalizeRoute(route), wrapped);
     }
 
     manager.start();

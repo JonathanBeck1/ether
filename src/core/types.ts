@@ -47,5 +47,14 @@ export interface Scene {
   tick(time: number, deltaTime: number): void;
   /** Optional resize hook called from SceneManager when viewport changes. */
   onResize?(width: number, height: number): void;
+  /**
+   * Same-world navigation. When the destination route resolves to the SAME
+   * factory as the current one and this hook exists, the manager calls it
+   * INSTEAD of exit/dispose/rebuild — the scene stays alive across the DOM
+   * swap and plays its own continuous transition (the basement.studio
+   * move). Runs inside the `astro:before-swap` dispatch: the new DOM is
+   * not in yet — defer DOM-coupled wiring to `astro:page-load`.
+   */
+  retarget?(route: string): void;
   dispose(): void;
 }

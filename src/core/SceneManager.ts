@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Scene } from './types';
 import type { QualityProfile } from '../quality';
 
-type SceneFactory = (renderer: THREE.WebGLRenderer) => Scene;
+type SceneFactory = (renderer: THREE.WebGLRenderer, route?: string) => Scene;
 
 /**
  * Owns the renderer, the render loop, and per-route Scene instances.
@@ -167,13 +167,35 @@ export class SceneManager {
       console.warn(`[SceneManager] No scene registered for: ${routeName}`);
       return;
     }
+    // Same-world navigation: when the destination resolves to the SAME
+    // factory that built the active scene and the scene opts in via
+    // retarget(), keep it alive — the scene plays its own continuous
+    // transition across the DOM swap instead of exit/dispose/rebuild.
+    // Only when the route actually CHANGES: a same-path nav (logo click on
+    // home) full-swaps the DOM without changing routes, and its scene must
+    // rebuild to re-couple — a kept scene would hold triggers on detached
+    // nodes. Cross-route retarget owns its own re-coupling by contract.
+    const currentFactory =
+      this.currentRoute !== null
+        ? this.scenes.get(this.currentRoute) ?? this.scenes.get('*')
+        : null;
+    if (
+      this._activeScene &&
+      routeName !== this.currentRoute &&
+      factory === currentFactory &&
+      this._activeScene.retarget
+    ) {
+      this.currentRoute = routeName;
+      this._activeScene.retarget(routeName);
+      return;
+    }
     if (this._activeScene) {
       await this._activeScene.exitTransition();
       this._activeScene.dispose();
       this._activeScene = null;
     }
     if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
-    const next = factory(this.renderer);
+    const next = factory(this.renderer, routeName);
     // Sync the fresh scene to the canvas's CSS box before it renders.
     // BaseScene seeds camera.aspect from window.inner*, which diverges
     // from the canvas box whenever mobile browser chrome is in play —
