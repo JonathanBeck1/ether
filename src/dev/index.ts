@@ -21,4 +21,5 @@ export type {
   MonitorDescriptor,
   VectorDescriptor,
   MonitorInput,
+  DiffMap,
 } from './tweaks';

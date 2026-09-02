@@ -72,6 +72,9 @@ export interface TweaksConfig {
   storageKey: string; // localStorage namespace, e.g. 'taketwo:tweaks:home'
   title?: string; // Staatliches header lockup text, default 'TWEAKS'
   startCollapsed?: boolean; // default false; persisted thereafter
+  spawn?: { top: number; left: number }; // initial position; a persisted panel position still wins
+  presetsMenu?: boolean; // default true; false hides the presets dropdown entirely
+  monoFontSources?: false | { w400: string; w500: string }; // false = no @font-face; URLs override the CDN default
 }
 
 export interface GroupConfig {

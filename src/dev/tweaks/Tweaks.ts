@@ -2,7 +2,7 @@ import type { DiffMap, GroupConfig, TweaksConfig, TweakValue } from './types';
 import type { RegistryEntry } from './Registry';
 import { Registry, GroupBuilder } from './Registry';
 import { Store } from './Store';
-import { applyTokens, SCOPED_CSS } from './tokens';
+import { applyTokens, buildFontFace, SCOPED_CSS } from './tokens';
 import { el } from './dom';
 import { formatNumber } from './format';
 import { buildConstantsBlock, buildJson } from './exporter';
@@ -81,8 +81,8 @@ export class Tweaks {
       attrs: { 'data-kit-tweaks': '' },
       style: {
         position: 'fixed',
-        top: '16px',
-        left: '16px',
+        top: `${config.spawn?.top ?? 16}px`,
+        left: `${config.spawn?.left ?? 16}px`,
         zIndex: '100000',
         width: '320px',
         minWidth: '300px',
@@ -91,7 +91,7 @@ export class Tweaks {
     });
 
     const styleEl = document.createElement('style');
-    styleEl.textContent = SCOPED_CSS;
+    styleEl.textContent = buildFontFace(config.monoFontSources) + SCOPED_CSS;
     root.appendChild(styleEl);
 
     this.header = el('div', { class: 'tw-header' });
@@ -362,7 +362,7 @@ export class Tweaks {
       this.urlTimer = setTimeout(() => this.writeUrlState(), 400);
     };
 
-    this.headerActions.appendChild(this.buildPresetsMenu());
+    if (this.config.presetsMenu !== false) this.headerActions.appendChild(this.buildPresetsMenu());
     this.headerActions.appendChild(copyLink);
     this.headerActions.appendChild(collapse);
   }
@@ -491,8 +491,10 @@ export class Tweaks {
   }
 
   private handleHeaderMove(e: PointerEvent): void {
-    this.root.style.left = `${e.clientX - this.dragOffset.x}px`;
-    this.root.style.top = `${e.clientY - this.dragOffset.y}px`;
+    const x = e.clientX - this.dragOffset.x;
+    const y = e.clientY - this.dragOffset.y;
+    this.root.style.left = `${Math.max(0, Math.min(x, window.innerWidth - 40))}px`;
+    this.root.style.top = `${Math.max(0, Math.min(y, window.innerHeight - 40))}px`;
   }
 
   private handleHeaderUp(): void {

@@ -29,27 +29,37 @@ export function applyTokens(shellRoot: HTMLElement): void {
 
 // IBM Plex Mono is NOT shipped by the host (global.css imports Staatliches +
 // IBM Plex Sans only). Inject it so the panel's mono identity holds; degrades
-// to ui-monospace if the dev is offline.
-const FONT_FACE = `
+// to ui-monospace if the dev is offline. Public pages pass their own hosted
+// URLs (or false) so visitors never touch a third-party CDN.
+const DEFAULT_MONO_SOURCES = {
+  w400: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@latest/latin-400-normal.woff2',
+  w500: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@latest/latin-500-normal.woff2',
+};
+
+export function buildFontFace(sources?: false | { w400: string; w500: string }): string {
+  if (sources === false) return '';
+  const s = sources ?? DEFAULT_MONO_SOURCES;
+  return `
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@latest/latin-400-normal.woff2') format('woff2');
+  src: url('${s.w400}') format('woff2');
 }
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@latest/latin-500-normal.woff2') format('woff2');
+  src: url('${s.w500}') format('woff2');
 }`;
+}
 
 // The full class vocabulary. Controls and chrome REUSE these names; they do
 // not invent their own. Every rule is prefixed with the shell attribute, so it
 // travels with the panel and leaks nothing.
-export const SCOPED_CSS = `${FONT_FACE}
+export const SCOPED_CSS = `
 [data-kit-tweaks] { box-sizing: border-box; font-family: var(--tw-font-mono); color: var(--tw-text); font-size: 11px; line-height: 1.5; letter-spacing: 0.04em; }
 [data-kit-tweaks] *, [data-kit-tweaks] *::before, [data-kit-tweaks] *::after { box-sizing: border-box; }
 
@@ -59,7 +69,7 @@ export const SCOPED_CSS = `${FONT_FACE}
 [data-kit-tweaks].tw-collapsed .tw-body, [data-kit-tweaks].tw-collapsed .tw-footer { display: none; }
 
 /* ── Header ────────────────────────────────────────────── */
-[data-kit-tweaks] .tw-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; cursor: grab; border-bottom: 1px solid var(--tw-hairline); user-select: none; }
+[data-kit-tweaks] .tw-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; cursor: grab; border-bottom: 1px solid var(--tw-hairline); user-select: none; touch-action: none; }
 [data-kit-tweaks] .tw-header:active { cursor: grabbing; }
 [data-kit-tweaks] .tw-title { font-family: var(--tw-font-display); font-size: 18px; letter-spacing: 0.08em; }
 [data-kit-tweaks] .tw-header-actions { display: flex; align-items: center; gap: 6px; }
