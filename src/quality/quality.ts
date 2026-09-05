@@ -13,7 +13,7 @@
  *
  *   LOW   - bottom-tier integrated GPUs (older iPhones, Chromebooks, base
  *           Android). DPR capped 1.5, composer with bloom + dither (the
- *           brand glow is non-negotiable), NO composer MSAA, native scroll
+ *           the glow is the look), NO composer MSAA, native scroll
  *           (no Lenis bridge). Goal: hold 30fps without melting the device.
  *
  *   MID   - mid-range mobile / older desktop. DPR capped 1.5, composer with
@@ -140,10 +140,10 @@ export async function detectQuality(): Promise<QualityProfile> {
     // every tier now) — post-processing renders into textures that
     // bypass the canvas framebuffer. Real edge AA = msaaSamples below.
     antialias:          false,
-    // Postprocessing on ALL tiers — bloom is critical for the violet
-    // rim halo on text/sculpture work. A single bloom pass is cheap
-    // enough that even modern "LOW" tier phones (iPhone 11 base, etc.)
-    // can handle it. Without bloom the brand glow disappears entirely.
+    // Postprocessing on ALL tiers — bloom is critical for the rim halo
+    // on text/sculpture work. A single bloom pass is cheap enough that
+    // even modern "LOW" tier phones (iPhone 11 base, etc.) can handle
+    // it. Without bloom the glow disappears entirely.
     enablePostFX:       true,
     // Dither on ALL tiers: it shares bloom's fullscreen pass (a few
     // ALU ops, effectively free) and without it the dark-field

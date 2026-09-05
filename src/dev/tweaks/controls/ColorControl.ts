@@ -8,7 +8,6 @@ import { attachScrub } from '../scrub';
 const SV_W = 168;
 const SV_H = 120;
 const HUE_W = 16;
-const BRAND_SWATCHES = ['#e66cff', '#59ffe2', '#ff7d4e'];
 
 /**
  * Bespoke HSV picker. Canonical store value is '#rrggbb' (no color-space
@@ -93,15 +92,17 @@ export class ColorControl extends BaseControl<string> {
       this.rgbInputs.push(field);
     }
 
-    // ── EyeDropper + brand swatches ──
+    // ── EyeDropper + theme swatches ──
     const tools = el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } });
-    const swatches = el('div', { class: 'tw-swatches' });
-    for (const sw of BRAND_SWATCHES) {
-      const chip = el('button', { class: 'tw-chip', style: { background: sw }, attrs: { type: 'button', 'aria-label': sw } });
-      this.on(chip, 'click', () => this.commitHex(sw));
-      swatches.appendChild(chip);
+    if (this.ctx.swatches.length) {
+      const swatches = el('div', { class: 'tw-swatches' });
+      for (const sw of this.ctx.swatches) {
+        const chip = el('button', { class: 'tw-chip', style: { background: sw }, attrs: { type: 'button', 'aria-label': sw } });
+        this.on(chip, 'click', () => this.commitHex(sw));
+        swatches.appendChild(chip);
+      }
+      tools.appendChild(swatches);
     }
-    tools.appendChild(swatches);
 
     if ('EyeDropper' in window) {
       const eye = el('button', { class: 'tw-eyedropper', text: 'pick', attrs: { type: 'button', 'aria-label': 'Eyedropper' } });

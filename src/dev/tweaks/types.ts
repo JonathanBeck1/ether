@@ -68,17 +68,37 @@ export type Descriptor =
 
 // ─── Panel construction ──────────────────────────────────────────────
 
+/** Panel styling. Every key except `swatches` becomes a CSS custom property
+ *  on the shell root (`--tw-<kebab-key>`); `swatches` are the quick-pick chips
+ *  in color controls. Partial overrides merge over the neutral defaults. */
+export interface TweaksTheme {
+  primary: string; // default group accent + slider-fill start
+  secondary: string; // slider-fill end
+  warn: string; // 'overrides active' chip
+  surface: string; // dropdown / menu surfaces
+  onAccent: string; // text on accent-filled pills
+  glass: string; // shell background
+  text: string;
+  muted: string;
+  hairline: string;
+  fontMono: string;
+  fontDisplay: string; // header lockup
+  radius: string;
+  swatches: string[];
+}
+
 export interface TweaksConfig {
-  storageKey: string; // localStorage namespace, e.g. 'taketwo:tweaks:home'
-  title?: string; // Staatliches header lockup text, default 'TWEAKS'
+  storageKey: string; // localStorage namespace, e.g. 'myapp:tweaks:home'
+  title?: string; // header lockup text, default 'TWEAKS'
   startCollapsed?: boolean; // default false; persisted thereafter
   spawn?: { top: number; left: number }; // initial position; a persisted panel position still wins
   presetsMenu?: boolean; // default true; false hides the presets dropdown entirely
   monoFontSources?: false | { w400: string; w500: string }; // false = no @font-face; URLs override the CDN default
+  theme?: Partial<TweaksTheme>;
 }
 
 export interface GroupConfig {
-  accent: '#e66cff' | '#59ffe2' | '#ff7d4e' | string; // left-rail + thumb-glow tint
+  accent: string; // left-rail + thumb-glow tint
   collapsed?: boolean; // default false; persisted
   available?: () => boolean; // group hidden when false (e.g. LOW tier → no bloom)
 }
@@ -99,6 +119,8 @@ export interface ControlContext {
   beginEdit(): void;
   /** Owning group's accent, for thumb glow / fill / left-rail (controls read var(--tw-accent)). */
   readonly accent: string;
+  /** Theme quick-pick colors, rendered as chips by color controls. */
+  readonly swatches: readonly string[];
 }
 
 export interface Control {

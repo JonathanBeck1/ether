@@ -1,4 +1,4 @@
-// aether/text — 3D type helpers.
+// ether/text — 3D type helpers.
 //
 // `extrudedWord(word, font, opts)` returns per-letter `ExtrudeGeometry`
 // instances ready to mount into a `THREE.Group`. Each letter comes with

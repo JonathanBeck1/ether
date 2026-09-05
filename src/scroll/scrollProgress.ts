@@ -30,7 +30,7 @@ export interface ScrollProgressTrigger {
  * Make a scrubbed ScrollTrigger that maps page-scroll progress (0..1) to a
  * callback — the one reusable "scroll drives a 3D value" shape (e.g. drift
  * progress, camera push-back). Event-style triggers (class/attr toggles on
- * enter/leave) stay in site code; they're brand-specific and not worth
+ * enter/leave) stay in site code; they're site-specific and not worth
  * abstracting.
  *
  * Registers the ScrollTrigger plugin on first use, so this also works on the

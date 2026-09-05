@@ -13,7 +13,7 @@ export function ensureScrollTriggerRegistered(): void {
   pluginRegistered = true;
 }
 
-/** Options forwarded verbatim to `new Lenis(...)`. Brand tuning (duration,
+/** Options forwarded verbatim to `new Lenis(...)`. Feel tuning (duration,
  *  easing, multipliers) lives in the consuming site's constants. */
 export type ScrollBridgeOptions = NonNullable<ConstructorParameters<typeof Lenis>[0]>;
 

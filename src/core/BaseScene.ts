@@ -7,7 +7,7 @@ import type { Scene } from './types';
  * disposable tracking and camera setup. Subclass and override the lifecycle
  * methods.
  *
- * The defaults here match TakeTwo's first site. They're cheap to override
+ * The defaults suit a centered hero subject. They're cheap to override
  * in the subclass — either by passing options to `super({...})` or by
  * setting `this.camera.position` directly after `super()`.
  *
@@ -67,5 +67,5 @@ export abstract class BaseScene implements Scene {
 }
 
 // Re-export Scene from types so consumers can `import { Scene } from
-// 'aether/core'` directly without reaching into ./types.
+// 'ether/core'` directly without reaching into ./types.
 export type { Scene } from './types';

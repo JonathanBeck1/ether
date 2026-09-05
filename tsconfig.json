@@ -15,7 +15,8 @@
     "verbatimModuleSyntax": false,
     "allowImportingTsExtensions": false,
     "noEmit": true,
-    "types": []
+    "types": ["vite/client"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

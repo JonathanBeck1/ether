@@ -72,7 +72,7 @@ export interface InitSceneRouterOptions {
  * serves `/web/` in prod and preview while dev serves `/web`; both must
  * resolve to the same registered scene. Root stays `/`.
  */
-function normalizeRoute(pathname: string): string {
+export function normalizeRoute(pathname: string): string {
   if (pathname.length <= 1) return pathname;
   return pathname.replace(/\/+$/, '') || '/';
 }

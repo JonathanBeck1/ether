@@ -1,6 +1,7 @@
 export { Tweaks } from './Tweaks';
 export type {
   TweaksConfig,
+  TweaksTheme,
   GroupConfig,
   Control,
   ControlContext,

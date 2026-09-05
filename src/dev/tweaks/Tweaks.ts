@@ -1,8 +1,8 @@
-import type { DiffMap, GroupConfig, TweaksConfig, TweakValue } from './types';
+import type { DiffMap, GroupConfig, TweaksConfig, TweaksTheme, TweakValue } from './types';
 import type { RegistryEntry } from './Registry';
 import { Registry, GroupBuilder } from './Registry';
 import { Store } from './Store';
-import { applyTokens, buildFontFace, SCOPED_CSS } from './tokens';
+import { applyTokens, buildFontFace, resolveTheme, SCOPED_CSS } from './tokens';
 import { el } from './dom';
 import { formatNumber } from './format';
 import { buildConstantsBlock, buildJson } from './exporter';
@@ -29,8 +29,9 @@ const READBACK_MS = 500; // ~2 Hz, the Stats cadence
  */
 export class Tweaks {
   readonly config: TweaksConfig;
+  readonly theme: TweaksTheme;
   readonly store = new Store();
-  private readonly registry = new Registry(this.store);
+  private readonly registry = new Registry(this.store, () => this.theme.swatches);
 
   private readonly root: HTMLElement; // shell, data-kit-tweaks, pointerEvents:'auto'
   private readonly styleEl: HTMLStyleElement; // the one scoped <style>, inside the shell
@@ -75,6 +76,7 @@ export class Tweaks {
 
   constructor(config: TweaksConfig) {
     this.config = config;
+    this.theme = resolveTheme(config.theme);
 
     const root = el('div', {
       class: 'tw-root',
@@ -126,7 +128,7 @@ export class Tweaks {
 
   mount(parent: HTMLElement = document.body): this {
     if (this.mounted) return this;
-    applyTokens(this.root);
+    applyTokens(this.root, this.theme);
     if (!this.styleEl.isConnected) this.root.prepend(this.styleEl); // re-mount: unmount removed it
     this.buildGroups();
     parent.appendChild(this.root);

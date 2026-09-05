@@ -1,39 +1,48 @@
-// Self-contained styling: brand tokens as CSS custom properties on the SHELL
+// Self-contained styling: theme tokens as CSS custom properties on the SHELL
 // ROOT ONLY (never document.documentElement — no host leak), plus one scoped
 // <style> string whose every selector is prefixed with [data-kit-tweaks].
 
-export const TOKENS = {
-  '--tw-violet': '#e66cff',
-  '--tw-teal': '#59ffe2',
-  '--tw-coral': '#ff7d4e',
-  '--tw-glass': 'rgba(10,12,20,0.72)',
-  '--tw-black': '#05060a',
-  '--tw-navy': '#0a0e1a',
-  '--tw-text': '#ffffff',
-  '--tw-muted': '#8891aa',
-  '--tw-hairline': 'rgba(255,255,255,0.08)',
-  '--tw-groove': 'rgba(255,255,255,0.08)',
-  '--tw-fill': 'linear-gradient(90deg, var(--tw-violet), var(--tw-teal))',
-  '--tw-font-mono': "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
-  '--tw-font-display': "'Staatliches', 'IBM Plex Mono', monospace",
-  '--tw-radius': '8px',
-  '--tw-accent': '#e66cff', // per-group override sets this inline on the group element
-} as const;
+import type { TweaksTheme } from './types';
 
-/** Set the brand tokens on the shell root. Never touches document.documentElement. */
-export function applyTokens(shellRoot: HTMLElement): void {
-  for (const k in TOKENS) {
-    shellRoot.style.setProperty(k, TOKENS[k as keyof typeof TOKENS]);
-  }
+const MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+export const DEFAULT_THEME: TweaksTheme = {
+  primary: '#6e9fff',
+  secondary: '#9bd8ff',
+  warn: '#ffb454',
+  surface: '#14161d',
+  onAccent: '#0b0d12',
+  glass: 'rgba(12,13,18,0.78)',
+  text: '#f2f3f5',
+  muted: '#8a8f9c',
+  hairline: 'rgba(255,255,255,0.08)',
+  fontMono: MONO,
+  fontDisplay: MONO,
+  radius: '8px',
+  swatches: [],
+};
+
+export function resolveTheme(partial?: Partial<TweaksTheme>): TweaksTheme {
+  return { ...DEFAULT_THEME, ...partial };
 }
 
-// IBM Plex Mono is NOT shipped by the host (global.css imports Staatliches +
-// IBM Plex Sans only). Inject it so the panel's mono identity holds; degrades
-// to ui-monospace if the dev is offline. Public pages pass their own hosted
-// URLs (or false) so visitors never touch a third-party CDN.
+/** Set the theme tokens on the shell root. Never touches document.documentElement. */
+export function applyTokens(shellRoot: HTMLElement, theme: TweaksTheme): void {
+  for (const k of Object.keys(theme) as (keyof TweaksTheme)[]) {
+    if (k === 'swatches') continue;
+    const name = '--tw-' + k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+    shellRoot.style.setProperty(name, theme[k]);
+  }
+  shellRoot.style.setProperty('--tw-groove', theme.hairline);
+  shellRoot.style.setProperty('--tw-accent', theme.primary); // per-group override sets this inline on the group element
+}
+
+// Hosts rarely ship a mono face. Inject one so the panel's mono identity
+// holds; degrades to ui-monospace if the dev is offline. Public pages pass
+// their own hosted URLs (or false) so visitors never touch a third-party CDN.
 const DEFAULT_MONO_SOURCES = {
-  w400: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@latest/latin-400-normal.woff2',
-  w500: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@latest/latin-500-normal.woff2',
+  w400: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@5.3.0/latin-400-normal.woff2',
+  w500: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@5.3.0/latin-500-normal.woff2',
 };
 
 export function buildFontFace(sources?: false | { w400: string; w500: string }): string {
@@ -94,7 +103,7 @@ export const SCOPED_CSS = `
 /* ── Slider (built by controls task; vocabulary frozen here) ── */
 [data-kit-tweaks] .tw-slider { position: relative; flex: 1 1 auto; height: 28px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
 [data-kit-tweaks] .tw-slider-track { position: relative; width: 100%; height: 4px; border-radius: 2px; background: var(--tw-groove); }
-[data-kit-tweaks] .tw-slider-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px; background: var(--tw-fill); background-repeat: no-repeat; }
+[data-kit-tweaks] .tw-slider-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--tw-primary), var(--tw-secondary)); background-repeat: no-repeat; }
 [data-kit-tweaks] .tw-thumb { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--tw-text); transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(255,255,255,.25), 0 0 12px 2px var(--tw-accent); transition: box-shadow 120ms ease, transform 120ms ease; }
 [data-kit-tweaks] .tw-slider.tw-grabbing .tw-thumb { transform: translate(-50%, -50%) scale(1.25); box-shadow: 0 0 0 1px rgba(255,255,255,.35), 0 0 18px 4px var(--tw-accent); }
 [data-kit-tweaks] .tw-readout { flex: 0 0 auto; min-width: 52px; text-align: right; color: var(--tw-text); cursor: ew-resize; font-variant-numeric: tabular-nums; }
@@ -127,17 +136,17 @@ export const SCOPED_CSS = `
 [data-kit-tweaks] .tw-segments { display: flex; flex: 1 1 auto; gap: 2px; padding: 2px; background: var(--tw-groove); border-radius: 6px; }
 [data-kit-tweaks] .tw-segment { flex: 1 1 0; min-width: 0; padding: 3px 6px; border: 0; border-radius: 4px; background: none; color: var(--tw-muted); cursor: pointer; font: inherit; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 120ms ease, color 120ms ease; }
 [data-kit-tweaks] .tw-segment:hover { color: var(--tw-text); }
-[data-kit-tweaks] .tw-segment.tw-on { background: var(--tw-accent); color: var(--tw-black); }
+[data-kit-tweaks] .tw-segment.tw-on { background: var(--tw-accent); color: var(--tw-on-accent); }
 
 /* ── Select — bespoke dropdown (>4) ──────────────────────── */
 [data-kit-tweaks] .tw-select { position: relative; flex: 1 1 auto; min-width: 0; }
 [data-kit-tweaks] .tw-select-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border: 1px solid var(--tw-hairline); border-radius: 4px; background: var(--tw-groove); color: var(--tw-text); cursor: pointer; font: inherit; text-align: left; }
 [data-kit-tweaks] .tw-select-trigger::after { content: '▾'; color: var(--tw-muted); margin-left: 8px; }
 [data-kit-tweaks] .tw-select-trigger:hover { border-color: var(--tw-accent); }
-[data-kit-tweaks] .tw-select-list { position: absolute; top: calc(100% + 2px); left: 0; right: 0; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; background: var(--tw-navy); border: 1px solid var(--tw-hairline); border-radius: 4px; padding: 4px; display: none; flex-direction: column; gap: 2px; z-index: 2; }
+[data-kit-tweaks] .tw-select-list { position: absolute; top: calc(100% + 2px); left: 0; right: 0; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; background: var(--tw-surface); border: 1px solid var(--tw-hairline); border-radius: 4px; padding: 4px; display: none; flex-direction: column; gap: 2px; z-index: 2; }
 [data-kit-tweaks] .tw-select-list.tw-open { display: flex; }
 [data-kit-tweaks] .tw-select-option { padding: 4px 8px; border: 0; border-radius: 3px; background: none; color: var(--tw-text); cursor: pointer; font: inherit; text-align: left; }
-[data-kit-tweaks] .tw-select-option:hover { background: var(--tw-accent); color: var(--tw-black); }
+[data-kit-tweaks] .tw-select-option:hover { background: var(--tw-accent); color: var(--tw-on-accent); }
 
 /* ── Interval — dual-thumb band ──────────────────────────── */
 [data-kit-tweaks] .tw-interval .tw-thumb { left: 0; }
@@ -164,9 +173,9 @@ export const SCOPED_CSS = `
 [data-kit-tweaks] .tw-btn { background: none; border: 1px solid var(--tw-hairline); border-radius: 4px; color: var(--tw-text); cursor: pointer; font: inherit; padding: 4px 8px; letter-spacing: 0.04em; }
 [data-kit-tweaks] .tw-btn:hover { border-color: var(--tw-accent); }
 [data-kit-tweaks] .tw-count { color: var(--tw-muted); margin-left: auto; }
-[data-kit-tweaks] .tw-chip-overrides { color: var(--tw-coral); }
+[data-kit-tweaks] .tw-chip-overrides { color: var(--tw-warn); }
 [data-kit-tweaks] .tw-menu { position: relative; }
-[data-kit-tweaks] .tw-menu-list { position: absolute; top: 100%; right: 0; background: var(--tw-navy); border: 1px solid var(--tw-hairline); border-radius: 4px; min-width: 160px; display: none; z-index: 1; padding: 4px; flex-direction: column; gap: 4px; }
+[data-kit-tweaks] .tw-menu-list { position: absolute; top: 100%; right: 0; background: var(--tw-surface); border: 1px solid var(--tw-hairline); border-radius: 4px; min-width: 160px; display: none; z-index: 1; padding: 4px; flex-direction: column; gap: 4px; }
 [data-kit-tweaks] .tw-menu-list.tw-open { display: flex; }
 [data-kit-tweaks] .tw-menu-item { display: flex; align-items: center; gap: 4px; }
 [data-kit-tweaks] .tw-menu-item > .tw-btn:first-child { flex: 1 1 auto; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,4 +1,4 @@
-// aether/scroll — Lenis ↔ GSAP ScrollTrigger bridge.
+// ether/scroll — Lenis ↔ GSAP ScrollTrigger bridge.
 //
 // `ScrollBridge` wraps a Lenis instance: brand-tuned options passed through,
 // the `ScrollTrigger.update` wiring, idempotent plugin registration, and the

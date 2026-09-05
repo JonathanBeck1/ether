@@ -37,9 +37,8 @@ export interface HeroComposer {
 }
 
 /**
- * Canonical TakeTwo hero postprocessing chain. Suitable for any dark
- * premium hero scene with a single bright accent color (the violet
- * text core, in TakeTwo's case).
+ * Canonical hero postprocessing chain for a dark scene with a single
+ * bright accent (luminous type, a lit mark).
  * Order: render → bloom → (optional dither).
  *
  * LDR composer (no frameBufferType: HalfFloatType) — values clip at 1.0
@@ -64,7 +63,7 @@ export function createHeroComposer(
 
   const bloom = new BloomEffect({
     intensity: 0.06,             // very restrained — bloom should be sensed, not seen
-    luminanceThreshold: 0.65,    // only the violet text core triggers it
+    luminanceThreshold: 0.65,    // only the bright accent core triggers it
     luminanceSmoothing: 0.2,
     mipmapBlur: true,
     kernelSize: KernelSize.MEDIUM,

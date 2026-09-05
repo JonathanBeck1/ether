@@ -2,10 +2,10 @@ import type * as THREE from 'three';
 import type { EffectComposer } from 'postprocessing';
 
 /**
- * Shared TypeScript types for `aether/core`.
+ * Shared TypeScript types for `ether/core`.
  *
  * Anything in here is engine-level — site code consumes these, the engine
- * never reaches into site types. Brand-specific types (LetterMesh, drift
+ * never reaches into site types. Site-specific types (LetterMesh, drift
  * motion, etc.) stay in each site's local `types.ts`.
  */
 

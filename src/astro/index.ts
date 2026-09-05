@@ -1,4 +1,4 @@
-// aether/astro — Astro-specific integration.
+// ether/astro — Astro-specific integration.
 //
 // `initSceneRouter(canvas, routes)` wires a persistent `<canvas>`
 // (Astro `transition:persist`) to a `SceneManager` for the lifetime of

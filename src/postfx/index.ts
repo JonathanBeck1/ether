@@ -1,4 +1,4 @@
-// aether/postfx — postprocessing effects + composer presets.
+// ether/postfx — postprocessing effects + composer presets.
 //
 // `DitherEffect` ships an 8x8 Bayer dither — the cheapest fix for the
 // gradient banding that becomes visible in dark scenes (canvas is mostly
@@ -6,9 +6,9 @@
 // composited output.
 //
 // `createHeroComposer(renderer, scene, camera, opts?)` returns the
-// canonical TakeTwo bloom+dither composer. Tuned for dark premium hero
+// canonical bloom+dither composer. Tuned for dark premium hero
 // scenes with one bright accent color. Runs on EVERY quality tier (the
-// brand glow is non-negotiable); tiers differ via the `multisampling`
+// the glow is the look); tiers differ via the `multisampling`
 // option, not by dropping passes. See heroComposer.ts for the rationale
 // on bloom values.
 export { DitherEffect } from './DitherEffect';

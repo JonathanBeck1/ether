@@ -59,7 +59,10 @@ export class Registry {
   readonly groups: GroupRecord[] = [];
   private readonly paths = new Set<string>();
 
-  constructor(private readonly store: Store) {}
+  constructor(
+    private readonly store: Store,
+    private readonly swatches: () => readonly string[],
+  ) {}
 
   group(name: string, config: GroupConfig): GroupBuilder {
     const record: GroupRecord = { name, config, entries: [] };
@@ -84,6 +87,7 @@ export class Registry {
 
     const ctx: ControlContext = {
       accent: group.config.accent,
+      swatches: this.swatches(),
       beginEdit: () => this.store.beginUndoCapture(),
       live: (v) => {
         (desc.set as (v: TweakValue) => void)(v);
@@ -115,7 +119,7 @@ export class Registry {
     this.paths.add(desc.path);
 
     const noop = (): void => {};
-    control.mount({ accent: group.config.accent, beginEdit: noop, live: noop, commit: noop });
+    control.mount({ accent: group.config.accent, swatches: [], beginEdit: noop, live: noop, commit: noop });
 
     group.entries.push({
       control,

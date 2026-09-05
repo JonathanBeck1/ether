@@ -11,7 +11,7 @@ import type { SceneManager } from '../core/SceneManager';
  *
  * Use:
  *
- *   import { Stats } from 'aether/dev';
+ *   import { Stats } from 'ether/dev';
  *   // Anywhere after initSceneRouter() resolves:
  *   const manager = await initSceneRouter(canvas, factory);
  *   if (new URL(location.href).searchParams.has('stats')) {
@@ -90,7 +90,7 @@ export class Stats {
       lab.textContent = label;
       lab.style.opacity = '0.5';
       const val = document.createElement('span');
-      val.style.color = '#59ffe2';
+      val.style.color = '#fff';
       r.appendChild(lab);
       r.appendChild(val);
       return { row: r, value: val };
@@ -190,7 +190,7 @@ export class Stats {
       this.fpsEl.textContent = fps.toFixed(0);
       // Colour-code FPS: green ≥55, amber 30–54, red <30.
       this.fpsEl.style.color =
-        fps >= 55 ? '#59ffe2' : fps >= 30 ? '#ff7d4e' : '#ff3a3a';
+        fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#f87171';
       this.msEl.textContent = ms.toFixed(1);
       this.frameCount = 0;
       this.lastSampleTime = now;

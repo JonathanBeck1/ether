@@ -31,7 +31,7 @@ export interface ExtrudedWordOptions {
   /** opentype.js path-coord font size. Default 100. */
   fontSize?: number;
   /**
-   * Ratio of cap height to em size for the font (Staatliches ≈ 0.7).
+   * Ratio of cap height to em size for the font (e.g. Staatliches ≈ 0.7).
    * Used with `targetCapHeight` to derive world scale.
    */
   capHeightRatio?: number;
