@@ -1,4 +1,4 @@
-// ether/text — 3D type helpers.
+// ether/text — type as FORM.
 //
 // `extrudedWord(word, font, opts)` returns per-letter `ExtrudeGeometry`
 // instances ready to mount into a `THREE.Group`. Each letter comes with
@@ -7,8 +7,9 @@
 // The caller wraps each geometry with its own material — keeping the
 // shader/brand layer out of kit.
 //
-// Future: MSDF wrapper around `troika-three-text` for crisp ranging-zoom
-// type. Same module, different entry point.
+// Type as TEXT — crisp MSDF meshes via troika-three-text — lives at
+// `ether/text/msdf`, its own entry so this one never pulls that optional
+// peer into a site that only extrudes.
 export {
   extrudedWord,
   type ExtrudedLetter,

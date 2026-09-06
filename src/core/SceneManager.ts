@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Scene } from './types';
-import type { QualityProfile } from '../quality';
+import type { QualityProfile } from '../quality/quality';
 
 type SceneFactory = (renderer: THREE.WebGLRenderer, route?: string) => Scene;
 

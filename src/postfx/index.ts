@@ -1,20 +1,28 @@
-// ether/postfx — postprocessing effects + composer presets.
+// ether/postfx — postprocessing building blocks + composer presets.
 //
-// `DitherEffect` ships an 8x8 Bayer dither — the cheapest fix for the
-// gradient banding that becomes visible in dark scenes (canvas is mostly
-// near-black). Use as the last effect in any EffectPass to deband the
-// composited output.
+// `createComposer(renderer, scene, camera, opts?)` is the one composer
+// shape: render → your effects → (ACES when hdr) → (dither), fused into
+// a single fullscreen pass. The presets are tunings of it:
 //
-// `createHeroComposer(renderer, scene, camera, opts?)` returns the
-// canonical bloom+dither composer. Tuned for dark premium hero
-// scenes with one bright accent color. Runs on EVERY quality tier (the
-// the glow is the look); tiers differ via the `multisampling`
-// option, not by dropping passes. See heroComposer.ts for the rationale
-// on bloom values.
+//   createHeroComposer   dark scene, one bright accent — restrained LDR bloom
+//   createNightComposer  emissive-heavy scene — hotter bloom, optional HDR/ACES
+//   createLightComposer  pale ground — dither only (bloom would lift the field)
+//
+// `DitherEffect` is the 8x8-Bayer-seeded grain that kills gradient
+// banding; every preset ends with it. `loadLUT` loads a `.cube`/`.3dl`
+// grade for postprocessing's `LUT3DEffect`.
+//
+// Pass `multisampling: quality.msaaSamples` from `ether/quality` — the
+// composer's targets are where edge AA actually happens once a composer
+// runs.
 export { DitherEffect } from './DitherEffect';
+export { createComposer, type Composer, type ComposerOptions } from './composer';
 export {
   createHeroComposer,
   createNightComposer,
-  type HeroComposerOptions,
-  type HeroComposer,
+  createLightComposer,
+  type BloomComposer,
+  type NightComposerOptions,
+  type PresetOptions,
 } from './heroComposer';
+export { loadLUT } from './lut';

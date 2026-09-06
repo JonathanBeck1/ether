@@ -18,18 +18,31 @@ today. See [Provenance](#provenance).
 
 ## Requirements
 
-- A **Vite-based bundler** (Astro, or Vite directly). The package ships raw
-  `.ts` from `src/` and uses Vite's `?raw` import for GLSL — there is no
-  build step and no plain-Node entry point.
+- A browser bundler. The npm package is plain ESM + `.d.ts` and works
+  with any of them; the git / `file:` install ships raw `.ts` and needs a
+  **Vite-based** one (Astro, or Vite directly) for its `?raw` GLSL
+  imports. There is no plain-Node entry point — the engine lives in a
+  page.
 - `three ^0.184`, `postprocessing ^6.39` (peer dependencies).
 - Optional peers, pulled in only by the modules that need them: `lenis`
   and `gsap` (`ether/scroll`), `detect-gpu` (`ether/quality`),
-  `opentype.js` (`ether/text`).
+  `opentype.js` (`ether/text`), `troika-three-text` (`ether/text/msdf`).
 
 ## Install
 
-As a sibling folder (fastest inner loop — Vite watches and HMRs kit edits
-like first-party code):
+From npm — built ESM + types, import from `@jonathanbeck1/ether/<module>`:
+
+```bash
+npm i @jonathanbeck1/ether three postprocessing
+```
+
+```ts
+import { initSceneRouter } from '@jonathanbeck1/ether/astro';
+```
+
+Or as raw `.ts`, which the rest of this README uses under the package
+name `ether` — a sibling folder is the fastest inner loop (Vite watches
+and HMRs kit edits like first-party code):
 
 ```json
 "ether": "file:../ether"
@@ -41,7 +54,8 @@ Or straight from git:
 npm i github:JonathanBeck1/ether
 ```
 
-Two Vite knobs make raw-`.ts` consumption work:
+Two Vite knobs make raw-`.ts` consumption work (the npm build needs
+neither):
 
 ```ts
 // astro.config.ts (or vite.config.ts)
@@ -71,15 +85,18 @@ tree-shake reliably:
 
 | Module | Exports | What it does |
 |---|---|---|
-| `ether/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene` | Renderer + rAF loop + per-route scene lifecycle (preload → enter → tick → exit → dispose). Subclass `BaseScene` for your hero. |
-| `ether/astro` | `initSceneRouter`, `SceneFactory`, `SceneRoutes`, `InitSceneRouterOptions` | Persistent-canvas router. Pass a routes map; it resolves the initial route from the address bar and drives scene transitions on `astro:before-swap`. The manager and GL context live for the lifetime of the tab. Register a scene for every route (`'*'` is the fallback). |
+| `ether/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene`, `attachSceneManager`, `Attachment`, `AttachOptions`, `SceneFactory`, `SceneRoutes`, `normalizeRoute` | Renderer + rAF loop + per-route scene lifecycle (preload → enter → tick → exit → dispose). Subclass `BaseScene` for your hero. `attachSceneManager` is the framework-agnostic persistent-canvas pattern — one manager per canvas for the lifetime of the tab, single-flight guarded, with a `bind` hook where a framework adapter wires its navigation events. |
+| `ether/astro` | `initSceneRouter`, `InitSceneRouterOptions` | Persistent-canvas router for Astro. Pass a routes map; it resolves the initial route from the address bar and drives scene transitions on `astro:before-swap`. The manager and GL context live for the lifetime of the tab. Register a scene for every route (`'*'` is the fallback). |
+| `ether/vanilla` | `initSceneRouter`, `VanillaRouter`, `VanillaRouterOptions` | The same pattern for plain Vite sites: `popstate` drives back/forward, `router.navigate()` drives programmatic moves, `interceptLinks` opts same-origin anchors in. Your app swaps the DOM it owns; the engine swaps scenes. |
 | `ether/quality` | `detectQuality`, `getQuality`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, dither, smooth scroll, reduced-motion. |
-| `ether/postfx` | `DitherEffect`, `createHeroComposer`, `createNightComposer`, `HeroComposerOptions`, `HeroComposer` | 8×8 Bayer dither (kills OLED banding on dark gradients) + two composer presets: a restrained LDR bloom for a dark scene with one bright accent, and a hotter HDR/ACES variant for emissive-heavy scenes. Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
+| `ether/postfx` | `createComposer`, `Composer`, `ComposerOptions`, `createHeroComposer`, `createNightComposer`, `createLightComposer`, `BloomComposer`, `PresetOptions`, `NightComposerOptions`, `DitherEffect`, `loadLUT` | One composer shape — render → your effects → (ACES when `hdr`) → dither, fused into a single fullscreen pass — and three tunings of it: restrained LDR bloom for a dark scene with one bright accent, hotter HDR/ACES bloom for emissive-heavy scenes, dither-only for pale grounds. `loadLUT` loads a `.cube`/`.3dl` grade for postprocessing's `LUT3DEffect`. Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
 | `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only on tiers that enable smooth scroll. |
-| `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
+| `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | Type as form: opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
+| `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own font file; no CDN fallback. |
+| `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. No asset pipeline — compress offline, load here. |
 | `ether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader plane with `uTime` + `uAspect` wired. Backdrops live here. |
 | `ether/interactions` | `initCardTilt` | Pointer-driven 3D card tilt with snap-to-rest idle, fine-pointer gate, and view-transition rebind. |
-| `ether/shaders` | `dither.glsl` (via `?raw`) | Reusable GLSL chunks. Files are the API. |
+| `ether/shaders` | `dither` (string), `dither.glsl` (via `?raw`) | Reusable GLSL chunks — each file is also exported as a named string, so they compose into your shader sources from any bundler. |
 | `ether/dev` | `Stats`, `Tweaks`, `TweaksConfig`, `TweaksTheme`, `GroupConfig`, descriptor types | URL-gated diagnostics: a perf overlay (FPS / ms / tier / DPR / composer) and a live-parameter panel — sliders, colors, toggles, selects, intervals, vectors, monitors; undo/redo; URL + localStorage persistence; named presets; export as a paste-ready constants block. Both ship zero bytes until mounted. |
 
 ## Wiring
@@ -100,6 +117,18 @@ export function boot(canvas: HTMLCanvasElement) {
   });
 }
 ```
+
+```ts
+// Plain Vite, no framework: same routes, History-API navigation.
+import { initSceneRouter } from 'ether/vanilla';
+
+const router = await initSceneRouter(canvas, routes, { interceptLinks: true });
+router.navigate('/work'); // pushState + scene transition
+```
+
+Another framework? Both adapters are a dozen lines over
+`attachSceneManager` from `ether/core` — pass a `bind` that turns your
+router's navigation event into `attachment.transitionTo(pathname)`.
 
 ```ts
 // scenes/HeroScene.ts
@@ -170,13 +199,37 @@ The engine never learns your brand. These belong to each site:
 - **No scene-graph editor.** The tweaks panel binds parameters you
   declare; it is not an authoring tool.
 
+## Stability
+
+1.0 means the sub-path exports in the module map are the public API and
+follow semver: a breaking change to any of them is a major. Not the API:
+file paths under `src/`, the chunk layout of the npm build, and the
+`__sceneManager` tag on the canvas (read it in tests; don't build on
+it). Deprecations ship with a console warning for at least one minor
+before removal. Peer ranges widen in minors when the peer's release is
+non-breaking for how the kit uses it. See [CHANGELOG](./CHANGELOG.md).
+
 ## Development
 
 ```bash
 npm install
-npm run typecheck   # tsc over src + tests
-npm test            # vitest over the pure modules
+npm run typecheck      # tsc over src + tests
+npm test               # vitest over the pure modules
+npm run test:e2e       # Playwright over a plain-Vite fixture: the persistent-canvas guarantees
+npm run build          # dist/: Vite ESM per module + tsc declarations + the npm package.json
+npm run test:dist      # consume the built .d.ts under skipLibCheck: false; npm pack --dry-run
+npm run test:e2e:dist  # the e2e suite again, fixture aliased to dist/
 ```
+
+Publishing is `npm publish ./dist --access public` from a logged-in
+account, after the build and both dist checks are green.
+
+The e2e suite (`tests/e2e`) is the engine's contract in executable form:
+one manager per canvas across boots, one render loop, scene swaps that
+dispose the outgoing scene and reuse the GL context, History-API
+navigation, the `'*'` fallback, resize propagation, and a clean detach.
+It runs on every CI push (`npx playwright install chromium` first,
+locally).
 
 ## Provenance
 

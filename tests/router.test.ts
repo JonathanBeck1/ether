@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeRoute } from '../src/astro/router';
+import { normalizeRoute } from '../src/core/attach';
 
 describe('normalizeRoute', () => {
   it('drops trailing slashes so dev and static-build URLs share a scene', () => {

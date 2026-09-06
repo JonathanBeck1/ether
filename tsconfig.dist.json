@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": false,
+    "paths": { "@jonathanbeck1/ether/*": ["./dist/*/index.d.ts"] }
+  },
+  "include": ["tests/dist-check.ts"],
+  "exclude": ["node_modules"]
+}

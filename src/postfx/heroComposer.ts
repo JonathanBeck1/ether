@@ -1,39 +1,21 @@
 import type * as THREE from 'three';
-import { HalfFloatType } from 'three';
-import {
-  EffectComposer,
-  RenderPass,
-  EffectPass,
-  BloomEffect,
-  KernelSize,
-  ToneMappingEffect,
-  ToneMappingMode,
-  type Effect,
-} from 'postprocessing';
-import { DitherEffect } from './DitherEffect';
+import { BloomEffect, KernelSize } from 'postprocessing';
+import { createComposer, type Composer } from './composer';
 
-export interface HeroComposerOptions {
-  /** Include the dither effect. It merges into the SAME fullscreen
-   *  pass as bloom (a few ALU ops — effectively free) and kills the
-   *  dark-gradient banding that reads as posterized color on OLED. */
+export interface PresetOptions {
+  /** Include the dither effect — see `ComposerOptions.enableDither`. Default true. */
   enableDither?: boolean;
-  /** MSAA sample count for the composer's internal render targets
-   *  (WebGL2). This is the antialiasing that actually reaches the
-   *  screen — the renderer's context `antialias` flag is bypassed the
-   *  moment passes render into textures. 0 disables. */
+  /** Composer-target MSAA samples — see `ComposerOptions.multisampling`. Default 0. */
   multisampling?: number;
-  /** HDR pipeline: half-float buffers + an ACES pass in the composer.
-   *  Render-to-target bypasses the renderer's own tone mapping, so
-   *  without this `toneMappingExposure` is a dead knob and highlights
-   *  hard-clip at 1.0. With it, exposure works and emitters get a
-   *  filmic shoulder. */
+}
+
+export interface NightComposerOptions extends PresetOptions {
+  /** HDR pipeline (half-float + ACES) — see `ComposerOptions.hdr`. Default false. */
   hdr?: boolean;
 }
 
-export interface HeroComposer {
-  composer: EffectComposer;
+export interface BloomComposer extends Composer {
   bloom: BloomEffect;
-  dither?: DitherEffect;
 }
 
 /**
@@ -41,26 +23,21 @@ export interface HeroComposer {
  * bright accent (luminous type, a lit mark).
  * Order: render → bloom → (optional dither).
  *
- * LDR composer (no frameBufferType: HalfFloatType) — values clip at 1.0
- * which keeps bloom restrained without needing a ToneMappingEffect.
- * Suggested wiring with the kit's quality module: pass
- * `{ enableDither: quality.enableDither, multisampling:
+ * LDR by design — values clip at 1.0, which keeps bloom restrained
+ * without a tone-mapping pass. Suggested wiring with the kit's quality
+ * module: pass `{ enableDither: quality.enableDither, multisampling:
  * quality.msaaSamples }` — all tiers run the composer; the per-tier
  * differences live in the profile, not at call sites. Bloom is tuned
  * for "felt not seen" — if you need a different mood, write a second
- * preset rather than parameterising this one beyond recognition.
+ * preset on `createComposer` rather than parameterising this one
+ * beyond recognition.
  */
 export function createHeroComposer(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
   camera: THREE.Camera,
-  options: HeroComposerOptions = {},
-): HeroComposer {
-  const { enableDither = true, multisampling = 0 } = options;
-  const composer = new EffectComposer(renderer, { multisampling });
-
-  composer.addPass(new RenderPass(scene, camera));
-
+  options: PresetOptions = {},
+): BloomComposer {
   const bloom = new BloomEffect({
     intensity: 0.06,             // very restrained — bloom should be sensed, not seen
     luminanceThreshold: 0.65,    // only the bright accent core triggers it
@@ -68,13 +45,7 @@ export function createHeroComposer(
     mipmapBlur: true,
     kernelSize: KernelSize.MEDIUM,
   });
-
-  const dither = enableDither ? new DitherEffect() : undefined;
-  const effects: Effect[] = dither ? [bloom, dither] : [bloom];
-
-  composer.addPass(new EffectPass(camera, ...effects));
-
-  return { composer, bloom, dither };
+  return { ...createComposer(renderer, scene, camera, { ...options, effects: [bloom] }), bloom };
 }
 
 /**
@@ -88,16 +59,8 @@ export function createNightComposer(
   renderer: THREE.WebGLRenderer,
   scene: THREE.Scene,
   camera: THREE.Camera,
-  options: HeroComposerOptions = {},
-): HeroComposer {
-  const { enableDither = true, multisampling = 0, hdr = false } = options;
-  const composer = new EffectComposer(
-    renderer,
-    hdr ? { multisampling, frameBufferType: HalfFloatType } : { multisampling },
-  );
-
-  composer.addPass(new RenderPass(scene, camera));
-
+  options: NightComposerOptions = {},
+): BloomComposer {
   const bloom = new BloomEffect({
     intensity: 0.38,
     luminanceThreshold: 0.62,
@@ -105,13 +68,21 @@ export function createNightComposer(
     mipmapBlur: true,
     kernelSize: KernelSize.LARGE,
   });
+  return { ...createComposer(renderer, scene, camera, { ...options, effects: [bloom] }), bloom };
+}
 
-  const dither = enableDither ? new DitherEffect() : undefined;
-  const effects: Effect[] = [bloom];
-  if (hdr) effects.push(new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }));
-  if (dither) effects.push(dither);
-
-  composer.addPass(new EffectPass(camera, ...effects));
-
-  return { composer, bloom, dither };
+/**
+ * Light-ground preset: render → dither, nothing else. Bloom on a pale
+ * field blooms the field — the whole frame lifts and the accent
+ * disappears — so a light page's postprocessing is the deband alone
+ * (pale gradients band too). Add a LUT via `createComposer` when the
+ * grade needs it.
+ */
+export function createLightComposer(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  camera: THREE.Camera,
+  options: PresetOptions = {},
+): Composer {
+  return createComposer(renderer, scene, camera, options);
 }
