@@ -1,10 +1,13 @@
 # ether
 
-A small WebGL engine for premium Astro sites. One persistent `<canvas>` that
+A WebGL engine for premium Astro sites, built on three.js. It owns the layer
+a studio site needs above the renderer — one persistent `<canvas>` that
 survives client-side navigation, GPU-tier quality detection, a Lenis ↔ GSAP
 ScrollTrigger bridge, a bloom + dither postprocessing preset, an
-opentype → ExtrudeGeometry pipeline for dimensional type, and a live
-tweaks panel for art direction.
+opentype → ExtrudeGeometry pipeline for dimensional type, and a live tweaks
+panel for art direction — and nothing three.js already does. No renderer of
+its own, no asset pipeline, no physics, no editor: deliberate omissions, not
+gaps.
 
 The engine owns the plumbing. Your site owns the art direction — palette,
 shaders, hero word, choreography. Nothing in here knows what your brand
