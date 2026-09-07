@@ -1,20 +1,36 @@
 # ether
 
+[![CI](https://github.com/JonathanBeck1/ether/actions/workflows/ci.yml/badge.svg)](https://github.com/JonathanBeck1/ether/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40jonathanbeck1%2Fether)](https://www.npmjs.com/package/@jonathanbeck1/ether)
+
 A WebGL engine for premium Astro sites, built on three.js. It owns the layer
 a studio site needs above the renderer — one persistent `<canvas>` that
-survives client-side navigation, GPU-tier quality detection, a Lenis ↔ GSAP
-ScrollTrigger bridge, a bloom + dither postprocessing preset, an
-opentype → ExtrudeGeometry pipeline for dimensional type, and a live tweaks
-panel for art direction — and nothing three.js already does. No renderer of
-its own, no asset pipeline, no physics, no editor: deliberate omissions, not
-gaps.
+survives client-side navigation (Astro or plain Vite), GPU-tier quality
+detection, a Lenis ↔ GSAP ScrollTrigger bridge, composable bloom / dither /
+LUT postprocessing, loaders with one progress value, extruded and MSDF
+type, and a live tweaks panel for art direction — and nothing three.js
+already does. No renderer of its own, no asset pipeline, no physics, no
+editor: deliberate omissions, not gaps.
 
 The engine owns the plumbing. Your site owns the art direction — palette,
 shaders, hero word, choreography. Nothing in here knows what your brand
 looks like.
 
 Extracted from the production site of a design studio, where it runs
-today. See [Provenance](#provenance).
+today: [taketwo-media.vercel.app](https://taketwo-media.vercel.app). The
+frames below are that site, captured from the live build — the extruded
+mark at rest after the intro, then mid-way through its scroll-driven
+dispersal. The header and the scroll cue are DOM; the mark and the
+backdrop are the scene.
+
+![The TakeTwo hero at rest: the extruded mark with its iridescent rim over the caustics backdrop](https://raw.githubusercontent.com/JonathanBeck1/ether/master/docs/hero-rest.jpg)
+
+![The same mark mid-scroll: letters tumbling out of formation](https://raw.githubusercontent.com/JonathanBeck1/ether/master/docs/hero-mid.jpg)
+
+Why it is shaped this way — the persistent canvas, LDR bloom, dither on
+every tier, exit-before-swap — is written up in
+[docs/design-notes.md](https://github.com/JonathanBeck1/ether/blob/master/docs/design-notes.md).
+See also [Provenance](#provenance).
 
 ## Requirements
 
@@ -213,6 +229,7 @@ non-breaking for how the kit uses it. See [CHANGELOG](./CHANGELOG.md).
 
 ```bash
 npm install
+npx playwright install chromium   # once: the browser the e2e suite drives
 npm run typecheck      # tsc over src + tests
 npm test               # vitest over the pure modules
 npm run test:e2e       # Playwright over a plain-Vite fixture: the persistent-canvas guarantees
@@ -228,8 +245,8 @@ The e2e suite (`tests/e2e`) is the engine's contract in executable form:
 one manager per canvas across boots, one render loop, scene swaps that
 dispose the outgoing scene and reuse the GL context, History-API
 navigation, the `'*'` fallback, resize propagation, and a clean detach.
-It runs on every CI push (`npx playwright install chromium` first,
-locally).
+It runs on every CI push, against the sources and again against the
+built package.
 
 ## Provenance
 
