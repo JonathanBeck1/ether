@@ -6,8 +6,8 @@ Notable changes to ether. The format follows
 
 ## [1.0.0] — 2026-09-06
 
-The first release a second consumer can install from npm and build a
-site with, without reading the monorepo the engine was extracted from.
+The first release a second consumer can install and build a site with,
+without reading the monorepo the engine was extracted from.
 
 ### Added
 
@@ -26,7 +26,7 @@ site with, without reading the monorepo the engine was extracted from.
 - `ether/text/msdf`: `msdfText` via the optional peer `troika-three-text`
   — its own entry, so `ether/text` never pulls the peer into a site that
   only extrudes.
-- Distribution: built ESM + `.d.ts` on npm as `@jonathanbeck1/ether`. The
+- Distribution: built ESM + `.d.ts` for npm as `@jonathanbeck1/ether`. The
   git / `file:` install keeps shipping raw `.ts` for Vite consumers.
 - Tests: a Playwright suite over a plain-Vite fixture asserts the
   engine's guarantees — one manager per canvas across boots, one render

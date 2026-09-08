@@ -1,7 +1,7 @@
 # ether
 
 [![CI](https://github.com/JonathanBeck1/ether/actions/workflows/ci.yml/badge.svg)](https://github.com/JonathanBeck1/ether/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/%40jonathanbeck1%2Fether)](https://www.npmjs.com/package/@jonathanbeck1/ether)
+[![npm: coming soon](https://img.shields.io/badge/npm-coming%20soon-555)](#install)
 
 A WebGL engine for premium Astro sites, built on three.js. It owns the layer
 a studio site needs above the renderer — one persistent `<canvas>` that
@@ -46,7 +46,23 @@ See also [Provenance](#provenance).
 
 ## Install
 
-From npm — built ESM + types, import from `@jonathanbeck1/ether/<module>`:
+Straight from git — raw `.ts`, which the rest of this README uses under
+the package name `ether`:
+
+```bash
+npm i github:JonathanBeck1/ether three postprocessing
+```
+
+Or as a sibling folder — the fastest inner loop (Vite watches and HMRs
+kit edits like first-party code):
+
+```json
+"ether": "file:../ether"
+```
+
+The npm package — built ESM + types, imported from
+`@jonathanbeck1/ether/<module>` — is not published yet. `npm run build`
+produces it; the install will be:
 
 ```bash
 npm i @jonathanbeck1/ether three postprocessing
@@ -54,20 +70,6 @@ npm i @jonathanbeck1/ether three postprocessing
 
 ```ts
 import { initSceneRouter } from '@jonathanbeck1/ether/astro';
-```
-
-Or as raw `.ts`, which the rest of this README uses under the package
-name `ether` — a sibling folder is the fastest inner loop (Vite watches
-and HMRs kit edits like first-party code):
-
-```json
-"ether": "file:../ether"
-```
-
-Or straight from git:
-
-```bash
-npm i github:JonathanBeck1/ether
 ```
 
 Two Vite knobs make raw-`.ts` consumption work (the npm build needs
