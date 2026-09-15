@@ -72,6 +72,7 @@ export class Tweaks {
   private schedulePersist: ((values: DiffMap) => void) | null = null;
   private scheduleURL: (() => void) | null = null;
   private urlTimer: ReturnType<typeof setTimeout> | null = null;
+  private copyTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
 
   constructor(config: TweaksConfig) {
@@ -154,6 +155,8 @@ export class Tweaks {
     this.persistTimer = null;
     if (this.urlTimer) clearTimeout(this.urlTimer); // A12: no stale URL write
     this.urlTimer = null;
+    if (this.copyTimer) clearTimeout(this.copyTimer); // A12: no flash reset on a detached button
+    this.copyTimer = null;
     if (this.unsubscribe) this.unsubscribe();
     this.unsubscribe = null;
     if (this.clearOverrides) this.clearOverrides(); // A12: un-tweak the scene
@@ -240,13 +243,15 @@ export class Tweaks {
    *  honoring gated deferral. Also restores panel position + collapsed (A8). */
   private restoreState(): void {
     const key = this.config.storageKey;
-    const urlPayload = new URL(location.href).searchParams.get('tweak');
-    const fromUrl = decodeURLState(urlPayload);
-    const restored = fromUrl ?? readState(key);
     // Intersect with this scene's registered paths so the 'overrides active'
     // chip reflects only overrides that actually apply here — a home-only key
     // persisted under a shared store must not light the chip on /work.
     const registered = new Set(this.registry.entries().map((e) => e.control.path));
+    const fromUrl = decodeURLState(new URL(location.href).searchParams.get('tweak'));
+    // A ?tweak copied from another page decodes fine but carries nothing for this
+    // scene — fall through to localStorage rather than persist defaults over it.
+    const restored =
+      fromUrl && Object.keys(fromUrl).some((k) => registered.has(k)) ? fromUrl : readState(key);
     this.restoredKeys = Object.keys(restored).filter((k) => registered.has(k));
     if (this.restoredKeys.length) this.store.restore(restored);
 
@@ -374,13 +379,16 @@ export class Tweaks {
     const button = el('button', { class: 'tw-btn', text: 'Presets', attrs: { type: 'button' } });
     const list = el('div', { class: 'tw-menu-list' });
 
+    // rebuild() runs on every open and replaceChildren() drops the old rows, so
+    // these listeners die with their nodes — routing them through the shell
+    // ledger would just grow it without bound.
     const rebuild = (): void => {
       list.replaceChildren();
       const presets = readPresets(this.config.storageKey);
       for (const name of Object.keys(presets)) {
         const row = el('div', { class: 'tw-menu-item' });
         const recall = el('button', { class: 'tw-btn', text: name, attrs: { type: 'button' } });
-        this.on(recall, 'click', () => {
+        recall.addEventListener('click', () => {
           this.store.beginUndoCapture();
           this.applyMap(presets[name]);
           this.store.pushUndo();
@@ -388,7 +396,7 @@ export class Tweaks {
           list.classList.remove('tw-open');
         });
         const del = el('button', { class: 'tw-btn', text: '×', attrs: { type: 'button', 'aria-label': `Delete ${name}` } });
-        this.on(del, 'click', () => {
+        del.addEventListener('click', () => {
           deletePreset(this.config.storageKey, name);
           rebuild();
         });
@@ -397,7 +405,7 @@ export class Tweaks {
         list.appendChild(row);
       }
       const save = el('button', { class: 'tw-btn', text: '+ Save current', attrs: { type: 'button' } });
-      this.on(save, 'click', () => {
+      save.addEventListener('click', () => {
         const name = prompt('Preset name');
         if (!name) return;
         savePreset(this.config.storageKey, name, this.store.diff());
@@ -433,8 +441,10 @@ export class Tweaks {
       /* clipboard blocked (insecure context) — still flash so the dev knows the click registered */
     }
     btn.textContent = 'copied';
-    setTimeout(() => {
+    if (this.copyTimer) clearTimeout(this.copyTimer);
+    this.copyTimer = setTimeout(() => {
       btn.textContent = label;
+      this.copyTimer = null;
     }, 1100);
   }
 

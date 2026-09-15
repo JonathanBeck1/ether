@@ -8,8 +8,16 @@ describe('hexNormalize', () => {
     expect(hexNormalize('  #c0392b ')).toBe('#c0392b');
   });
 
-  it('rejects anything that is not exactly six hex digits', () => {
-    expect(hexNormalize('#fff')).toBeNull();
+  it('expands three-digit shorthand', () => {
+    expect(hexNormalize('#f00')).toBe('#ff0000');
+    expect(hexNormalize('#FFF')).toBe('#ffffff');
+    expect(hexNormalize('abc')).toBe('#aabbcc');
+    expect(hexNormalize(' #012 ')).toBe('#001122');
+  });
+
+  it('rejects anything that is not three or six hex digits', () => {
+    expect(hexNormalize('#ff')).toBeNull();
+    expect(hexNormalize('#ffff')).toBeNull();
     expect(hexNormalize('#12345g')).toBeNull();
     expect(hexNormalize('#1234567')).toBeNull();
     expect(hexNormalize('')).toBeNull();

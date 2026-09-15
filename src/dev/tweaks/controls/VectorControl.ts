@@ -20,6 +20,8 @@ export class VectorControl extends BaseControl<number[]> {
   private handle!: HTMLElement;
   private readouts: HTMLElement[] = [];
   private scrubDetach: Array<() => void> = [];
+  private dragging = false;
+  private repeating = false;
 
   constructor(desc: VectorDescriptor) {
     super(desc, desc.step);
@@ -34,7 +36,12 @@ export class VectorControl extends BaseControl<number[]> {
     this.pad = el('div', { class: 'tw-xy', style: { width: `${PAD}px`, height: `${PAD}px` } });
     this.handle = el('div', {
       class: 'tw-xy-handle',
-      attrs: { role: 'slider', 'aria-valuemin': String(this.cfg.min), 'aria-valuemax': String(this.cfg.max) },
+      attrs: {
+        tabindex: '0',
+        role: 'slider',
+        'aria-valuemin': String(this.cfg.min),
+        'aria-valuemax': String(this.cfg.max),
+      },
     });
     this.pad.appendChild(this.handle);
 
@@ -58,6 +65,9 @@ export class VectorControl extends BaseControl<number[]> {
     this.on(this.pad, 'pointerdown', this.onPadDown as EventListener);
     this.on(this.pad, 'pointermove', this.onPadMove as EventListener);
     this.on(this.pad, 'pointerup', this.onPadUp as EventListener);
+    this.on(this.pad, 'pointercancel', this.onPadUp as EventListener);
+    this.on(this.handle, 'keydown', this.onKeyDown as EventListener);
+    this.on(this.handle, 'keyup', this.onKeyUp as EventListener);
     this.on(this.widget, 'dblclick', () => this.reset());
 
     for (let i = 0; i < this.cfg.axes; i++) {
@@ -136,18 +146,22 @@ export class VectorControl extends BaseControl<number[]> {
     e.preventDefault();
     this.pad.setPointerCapture(e.pointerId);
     this.pad.classList.add('tw-grabbing');
+    this.dragging = true;
     this.beginEdit();
     this.applyFromPointer(e);
   };
 
   private onPadMove = (e: PointerEvent): void => {
-    if (!this.pad.hasPointerCapture(e.pointerId)) return;
+    if (!this.dragging) return;
     this.applyFromPointer(e);
   };
 
+  // pointercancel has already dropped capture, so the gesture ends off the
+  // drag flag — otherwise this row's read-back stays frozen.
   private onPadUp = (e: PointerEvent): void => {
-    if (!this.pad.hasPointerCapture(e.pointerId)) return;
-    this.pad.releasePointerCapture(e.pointerId);
+    if (!this.dragging) return;
+    this.dragging = false;
+    if (this.pad.hasPointerCapture(e.pointerId)) this.pad.releasePointerCapture(e.pointerId);
     this.pad.classList.remove('tw-grabbing');
     this.commitEdit(this.vals.slice());
   };
@@ -161,4 +175,44 @@ export class VectorControl extends BaseControl<number[]> {
     this.setAxis(1, min + Math.max(0, Math.min(1, 1 - ty)) * (max - min));
     this.ctx.live(this.vals.slice());
   }
+
+  // ── Arrow-key nudge (horizontal = x, vertical = y) ──────────────────
+
+  private onKeyDown = (e: KeyboardEvent): void => {
+    const mult = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
+    let axis: 0 | 1;
+    let dir: number;
+    switch (e.key) {
+      case 'ArrowRight':
+        axis = 0;
+        dir = 1;
+        break;
+      case 'ArrowLeft':
+        axis = 0;
+        dir = -1;
+        break;
+      case 'ArrowUp':
+        axis = 1;
+        dir = 1;
+        break;
+      case 'ArrowDown':
+        axis = 1;
+        dir = -1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    this.beginEdit();
+    this.setAxis(axis, this.vals[axis] + this.cfg.step * mult * dir);
+    this.ctx.live(this.vals.slice());
+    if (e.repeat) this.repeating = true;
+    else this.commitEdit(this.vals.slice());
+  };
+
+  private onKeyUp = (): void => {
+    if (!this.repeating) return;
+    this.repeating = false;
+    this.commitEdit(this.vals.slice());
+  };
 }

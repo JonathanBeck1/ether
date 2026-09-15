@@ -16,10 +16,12 @@ export interface HSV {
 
 const clamp255 = (n: number): number => Math.max(0, Math.min(255, Math.round(n)));
 
-/** Lowercased '#rrggbb', or null if the input isn't a valid 6-digit hex (boundary). */
+/** Lowercased '#rrggbb' from 3- or 6-digit hex, or null if invalid (boundary). */
 export function hexNormalize(input: string): string | null {
-  const m = /^#?([0-9a-fA-F]{6})$/.exec(input.trim());
-  return m ? '#' + m[1].toLowerCase() : null;
+  const m = /^#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.exec(input.trim());
+  if (!m) return null;
+  const h = m[1].toLowerCase();
+  return '#' + (h.length === 6 ? h : h[0] + h[0] + h[1] + h[1] + h[2] + h[2]);
 }
 
 export function hexToRgb(hex: string): RGB {

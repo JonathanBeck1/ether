@@ -80,7 +80,7 @@ export class Store {
    *  The shell decides whether each emit reaches the scene (gated paths defer). */
   restore(map: Record<string, TweakValue>): void {
     const known: Record<string, TweakValue> = {};
-    for (const k in map) if (k in this.defaults) known[k] = map[k];
+    for (const k in map) if (k in this.defaults && matchesShape(map[k], this.defaults[k])) known[k] = map[k];
     this.values = { ...this.defaults, ...known };
     for (const p in this.values) this.emit(p, this.values[p]);
   }
@@ -110,6 +110,9 @@ export class Store {
 
   /** Pop the last entry, push current onto redo, restore. */
   undo(): void {
+    // An abandoned gesture's capture would otherwise survive as the next
+    // commit's "before" and re-apply the edit this undo just rolled back.
+    this.pendingPre = null;
     const prev = this.undoStack.pop();
     if (!prev) return;
     this.redoStack.push({ ...this.values });
@@ -117,6 +120,7 @@ export class Store {
   }
 
   redo(): void {
+    this.pendingPre = null;
     const next = this.redoStack.pop();
     if (!next) return;
     this.undoStack.push({ ...this.values });
@@ -126,4 +130,13 @@ export class Store {
   private emit(path: string, v: TweakValue): void {
     for (const fn of this.subs) fn(path, v);
   }
+}
+
+/** Boundary: a stale or hand-edited payload must not put a string on a number
+ *  path and push NaN into a uniform. */
+function matchesShape(v: TweakValue, def: TweakValue): boolean {
+  if (Array.isArray(def)) {
+    return Array.isArray(v) && v.length === def.length && v.every((n) => typeof n === 'number');
+  }
+  return typeof v === typeof def;
 }

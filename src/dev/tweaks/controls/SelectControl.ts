@@ -18,6 +18,7 @@ export class SelectControl extends BaseControl<string | number> {
   // Dropdown mode.
   private trigger: HTMLButtonElement | null = null;
   private list: HTMLElement | null = null;
+  private options: HTMLButtonElement[] = [];
   private open = false;
 
   constructor(desc: SelectDescriptor) {
@@ -62,7 +63,10 @@ export class SelectControl extends BaseControl<string | number> {
 
   private buildDropdown(): void {
     const menu = el('div', { class: 'tw-select' });
-    this.trigger = el('button', { class: 'tw-select-trigger', attrs: { type: 'button', 'aria-haspopup': 'listbox' } });
+    this.trigger = el('button', {
+      class: 'tw-select-trigger',
+      attrs: { type: 'button', 'aria-haspopup': 'listbox', 'aria-expanded': 'false' },
+    });
     this.list = el('div', { class: 'tw-select-list', attrs: { role: 'listbox' } });
 
     this.labels.forEach((label, i) => {
@@ -71,18 +75,22 @@ export class SelectControl extends BaseControl<string | number> {
         this.choose(this.values[i]);
         this.closeList();
       });
+      this.options.push(opt);
       this.list!.appendChild(opt);
     });
 
     this.on(this.trigger, 'click', () => (this.open ? this.closeList() : this.openList()));
-    // Escape closes the open list and returns focus to the trigger.
-    this.on(this.trigger, 'keydown', ((e: KeyboardEvent) => {
+    // Escape closes the open list and returns focus to the trigger — bound on
+    // the list too, since focus is on an option once the list is open.
+    const onEscape = ((e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.open) {
         e.preventDefault();
         this.closeList();
         this.trigger?.focus();
       }
-    }) as EventListener);
+    }) as EventListener;
+    this.on(this.trigger, 'keydown', onEscape);
+    this.on(this.list, 'keydown', onEscape);
     // Outside-click dismiss — registered once (gated by this.open) so reopening
     // never grows the ledger; destroy() removes it via super.
     this.on(document, 'pointerdown', this.onDocDown as EventListener);
@@ -95,12 +103,14 @@ export class SelectControl extends BaseControl<string | number> {
     if (!this.list) return;
     this.open = true;
     this.list.classList.add('tw-open');
+    this.trigger?.setAttribute('aria-expanded', 'true');
   }
 
   private closeList(): void {
     if (!this.list) return;
     this.open = false;
     this.list.classList.remove('tw-open');
+    this.trigger?.setAttribute('aria-expanded', 'false');
   }
 
   private onDocDown = (e: PointerEvent): void => {
@@ -124,6 +134,9 @@ export class SelectControl extends BaseControl<string | number> {
       const on = i === idx;
       this.pills[i].classList.toggle('tw-on', on);
       this.pills[i].setAttribute('aria-checked', String(on));
+    }
+    for (let i = 0; i < this.options.length; i++) {
+      this.options[i].setAttribute('aria-selected', String(i === idx));
     }
     if (this.trigger) this.trigger.textContent = idx >= 0 ? this.labels[idx] : String(this.value);
   }

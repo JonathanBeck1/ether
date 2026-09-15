@@ -35,6 +35,8 @@ export class ColorControl extends BaseControl<string> {
   private rgbInputs: HTMLInputElement[] = [];
   private rgbEditing: boolean[] = [false, false, false];
   private scrubDetach: Array<() => void> = [];
+  private svDragging = false;
+  private hueDragging = false;
 
   constructor(desc: ColorDescriptor) {
     super(desc, 0);
@@ -253,18 +255,24 @@ export class ColorControl extends BaseControl<string> {
       if (e.button !== 0) return;
       e.preventDefault();
       this.svCanvas.setPointerCapture(e.pointerId);
+      this.svDragging = true;
       this.beginEdit();
       apply(e, false);
     }) as EventListener);
     this.on(this.svCanvas, 'pointermove', ((e: PointerEvent) => {
-      if (!this.svCanvas.hasPointerCapture(e.pointerId)) return;
+      if (!this.svDragging) return;
       apply(e, false);
     }) as EventListener);
-    this.on(this.svCanvas, 'pointerup', ((e: PointerEvent) => {
-      if (!this.svCanvas.hasPointerCapture(e.pointerId)) return;
-      this.svCanvas.releasePointerCapture(e.pointerId);
+    // pointercancel has already dropped capture, so the gesture ends off the
+    // drag flag — otherwise this row's read-back stays frozen.
+    const end = (e: PointerEvent): void => {
+      if (!this.svDragging) return;
+      this.svDragging = false;
+      if (this.svCanvas.hasPointerCapture(e.pointerId)) this.svCanvas.releasePointerCapture(e.pointerId);
       apply(e, true);
-    }) as EventListener);
+    };
+    this.on(this.svCanvas, 'pointerup', end as EventListener);
+    this.on(this.svCanvas, 'pointercancel', end as EventListener);
   }
 
   // ── Hue strip drag ─────────────────────────────────────────────────
@@ -279,18 +287,22 @@ export class ColorControl extends BaseControl<string> {
       if (e.button !== 0) return;
       e.preventDefault();
       this.hueCanvas.setPointerCapture(e.pointerId);
+      this.hueDragging = true;
       this.beginEdit();
       apply(e, false);
     }) as EventListener);
     this.on(this.hueCanvas, 'pointermove', ((e: PointerEvent) => {
-      if (!this.hueCanvas.hasPointerCapture(e.pointerId)) return;
+      if (!this.hueDragging) return;
       apply(e, false);
     }) as EventListener);
-    this.on(this.hueCanvas, 'pointerup', ((e: PointerEvent) => {
-      if (!this.hueCanvas.hasPointerCapture(e.pointerId)) return;
-      this.hueCanvas.releasePointerCapture(e.pointerId);
+    const end = (e: PointerEvent): void => {
+      if (!this.hueDragging) return;
+      this.hueDragging = false;
+      if (this.hueCanvas.hasPointerCapture(e.pointerId)) this.hueCanvas.releasePointerCapture(e.pointerId);
       apply(e, true);
-    }) as EventListener);
+    };
+    this.on(this.hueCanvas, 'pointerup', end as EventListener);
+    this.on(this.hueCanvas, 'pointercancel', end as EventListener);
   }
 
   // ── Hex input ──────────────────────────────────────────────────────

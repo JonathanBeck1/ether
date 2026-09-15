@@ -76,7 +76,8 @@ export abstract class BaseControl<T extends TweakValue> implements Control {
     if (this.destroyed) return;
     for (const [target, type, handler] of this.listeners) target.removeEventListener(type, handler);
     this.listeners = [];
-    if (document.pointerLockElement) document.exitPointerLock();
+    // Scoped: another control, or the host page, may be the one holding the lock.
+    if (this.el.contains(document.pointerLockElement)) document.exitPointerLock();
     this.destroyed = true;
   }
 

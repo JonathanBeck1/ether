@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Store } from '../src/dev/tweaks/Store';
+import type { TweakValue } from '../src/dev/tweaks/types';
 
 describe('Store', () => {
   it('registers defaults and starts clean', () => {
@@ -55,6 +56,21 @@ describe('Store', () => {
     expect(s.snapshot()).toEqual({ a: 9, b: 2 });
   });
 
+  it('restore keeps only values shaped like the default', () => {
+    const s = new Store();
+    s.register('n', 1);
+    s.register('c', '#ffffff');
+    s.register('v', [0, 0]);
+    s.register('w', [0, 0]);
+
+    // wrong primitive, wrong arity, non-numeric element
+    s.restore({ n: 'nope', c: 2, v: [1], w: [1, 'x'] as unknown as TweakValue });
+    expect(s.snapshot()).toEqual({ n: 1, c: '#ffffff', v: [0, 0], w: [0, 0] });
+
+    s.restore({ n: 4, v: [2, 3] });
+    expect(s.snapshot()).toEqual({ n: 4, c: '#ffffff', v: [2, 3], w: [0, 0] });
+  });
+
   it('undo/redo replay one snapshot per committed gesture', () => {
     const s = new Store();
     s.register('a', 0);
@@ -77,6 +93,24 @@ describe('Store', () => {
     expect(s.get('a')).toBe(5);
     s.redo();
     expect(s.get('a')).toBe(8);
+  });
+
+  it('drops an abandoned capture so the next gesture cannot undo the undo', () => {
+    const s = new Store();
+    s.register('a', 0);
+    s.beginUndoCapture();
+    s.commit('a', 5);
+    s.pushUndo();
+
+    s.beginUndoCapture(); // sub-threshold click: cancelled, never committed
+    s.undo();
+    expect(s.get('a')).toBe(0);
+
+    s.beginUndoCapture();
+    s.commit('a', 7);
+    s.pushUndo();
+    s.undo();
+    expect(s.get('a')).toBe(0);
   });
 
   it('a new gesture clears the redo stack', () => {

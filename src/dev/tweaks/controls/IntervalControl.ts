@@ -24,6 +24,7 @@ export class IntervalControl extends BaseControl<number[]> {
   private thumbs!: [HTMLElement, HTMLElement];
   private readouts!: [HTMLElement, HTMLElement];
   private dragging: Side | null = null;
+  private repeating = false;
   private scrubDetach: Array<() => void> = [];
 
   constructor(desc: IntervalDescriptor) {
@@ -63,10 +64,13 @@ export class IntervalControl extends BaseControl<number[]> {
     this.on(this.slider, 'pointerdown', this.onTrackDown as EventListener);
     this.on(this.slider, 'pointermove', this.onTrackMove as EventListener);
     this.on(this.slider, 'pointerup', this.onTrackUp as EventListener);
+    this.on(this.slider, 'pointercancel', this.onTrackUp as EventListener);
 
     // Arrow-key nudge per focused thumb.
     this.on(loThumb, 'keydown', ((e: KeyboardEvent) => this.onKey(e, 0)) as EventListener);
     this.on(hiThumb, 'keydown', ((e: KeyboardEvent) => this.onKey(e, 1)) as EventListener);
+    this.on(loThumb, 'keyup', this.onKeyUp as EventListener);
+    this.on(hiThumb, 'keyup', this.onKeyUp as EventListener);
 
     this.on(this.widget, 'dblclick', () => this.reset());
 
@@ -172,15 +176,17 @@ export class IntervalControl extends BaseControl<number[]> {
   };
 
   private onTrackMove = (e: PointerEvent): void => {
-    if (this.dragging === null || !this.slider.hasPointerCapture(e.pointerId)) return;
+    if (this.dragging === null) return;
     this.applyFromClientX(e.clientX);
   };
 
+  // pointercancel has already dropped capture, so the gesture ends off the
+  // drag state — otherwise this row's read-back stays frozen.
   private onTrackUp = (e: PointerEvent): void => {
-    if (!this.slider.hasPointerCapture(e.pointerId)) return;
-    this.slider.releasePointerCapture(e.pointerId);
-    this.slider.classList.remove('tw-grabbing');
+    if (this.dragging === null) return;
     this.dragging = null;
+    if (this.slider.hasPointerCapture(e.pointerId)) this.slider.releasePointerCapture(e.pointerId);
+    this.slider.classList.remove('tw-grabbing');
     this.commitEdit(this.read());
   };
 
@@ -233,6 +239,15 @@ export class IntervalControl extends BaseControl<number[]> {
     this.beginEdit();
     this.setSide(side, next);
     this.ctx.live(this.read());
-    this.commitEdit(this.read());
+    // A held arrow repeats keydown; committing each one would push an undo
+    // entry per repeat and evict the history. Commit the run once, on keyup.
+    if (e.repeat) this.repeating = true;
+    else this.commitEdit(this.read());
   }
+
+  private onKeyUp = (): void => {
+    if (!this.repeating) return;
+    this.repeating = false;
+    this.commitEdit(this.read());
+  };
 }
