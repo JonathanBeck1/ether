@@ -99,9 +99,9 @@ export class SceneManager {
     // iOS Safari WILL drop the WebGL context under memory pressure (multiple
     // tabs, OS pressure, switching apps with the tab open). Without a
     // handler, the canvas turns into a permanent white rectangle until
-    // page reload. We catch it, stop the rAF, mark the body so CSS can
-    // show a fallback poster, and try to recover when/if the context
-    // comes back.
+    // page reload. We catch it, keep the loop running with the GPU calls
+    // skipped, mark the body so CSS can show a fallback poster, and try
+    // to recover when/if the context comes back.
     canvas.addEventListener('webglcontextlost', this.handleContextLostBound, false);
     canvas.addEventListener('webglcontextrestored', this.handleContextRestoredBound, false);
   }
@@ -189,40 +189,62 @@ export class SceneManager {
       this._activeScene.retarget(routeName);
       return;
     }
-    if (this._activeScene) {
-      await this._activeScene.exitTransition();
-      this._activeScene.dispose();
+    try {
+      if (this._activeScene) {
+        await this._activeScene.exitTransition();
+        this._activeScene.dispose();
+        this._activeScene = null;
+      }
+      if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
+      const next = factory(this.renderer, routeName);
+      // Sync the fresh scene to the canvas's CSS box before it renders.
+      // BaseScene seeds camera.aspect from window.inner*, which diverges
+      // from the canvas box whenever mobile browser chrome is in play —
+      // without this, a scene constructed mid-session (URL bar collapsed)
+      // renders at the wrong aspect until the next resize event. Scenes
+      // also render a warm-up frame in preload(), so this must run first.
+      const canvas = this.renderer.domElement;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w > 0 && h > 0) this.sizeScene(next, w, h);
+      if (next.preload) await next.preload();
+      if (this.destroyed) { next.dispose(); return; }
+      this._activeScene = next;
+      this.currentRoute = routeName;
+      // A resize during preload() had no active scene to land on — the
+      // handler resized the renderer and nothing else, and its
+      // same-size short-circuit means no later event repeats it.
+      const liveW = canvas.clientWidth;
+      const liveH = canvas.clientHeight;
+      if (liveW > 0 && liveH > 0 && (liveW !== w || liveH !== h)) {
+        this.sizeScene(next, liveW, liveH);
+      }
+      next.enterTransition().catch((err) => {
+        console.error(
+          `[SceneManager] enterTransition failed for ${routeName}:`,
+          err,
+        );
+      });
+    } catch (err) {
+      // A hop that throws must not strand the tab: drop whatever scene is
+      // still held and forget the route, so the consumer can navigate
+      // back to the one that worked.
+      this._activeScene?.dispose();
       this._activeScene = null;
+      this.currentRoute = null;
+      throw err;
     }
-    if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
-    const next = factory(this.renderer, routeName);
-    // Sync the fresh scene to the canvas's CSS box before it renders.
-    // BaseScene seeds camera.aspect from window.inner*, which diverges
-    // from the canvas box whenever mobile browser chrome is in play —
-    // without this, a scene constructed mid-session (URL bar collapsed)
-    // renders at the wrong aspect until the next resize event.
-    const canvas = this.renderer.domElement;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (w > 0 && h > 0) {
-      next.camera.aspect = w / h;
-      next.camera.updateProjectionMatrix();
-      next.composer?.setSize(w, h);
-      // Same trio the resize handler fires — the scene's own responsive
-      // tuning (portrait bumps, hero re-fit) must also seed from the
-      // canvas box, not the window it read in its constructor.
-      next.onResize?.(w, h);
-    }
-    if (next.preload) await next.preload();
-    if (this.destroyed) { next.dispose(); return; }
-    this._activeScene = next;
-    this.currentRoute = routeName;
-    next.enterTransition().catch((err) => {
-      console.error(
-        `[SceneManager] enterTransition failed for ${routeName}:`,
-        err,
-      );
-    });
+  }
+
+  /** Sync a scene to the canvas box: camera, composer targets, and the
+   *  scene's own responsive tuning. */
+  private sizeScene(scene: Scene, w: number, h: number): void {
+    scene.camera.aspect = w / h;
+    scene.camera.updateProjectionMatrix();
+    // updateStyle false: the composer forwards to renderer.setSize, which
+    // writes inline canvas styles unless told not to.
+    scene.composer?.setSize(w, h, false);
+    scene.onResize?.(w, h);
   }
 
   start(): void {
@@ -286,12 +308,7 @@ export class SceneManager {
       this.lastResizeW = w;
       this.lastResizeH = h;
       this.renderer.setSize(w, h, false);
-      if (this._activeScene) {
-        this._activeScene.camera.aspect = w / h;
-        this._activeScene.camera.updateProjectionMatrix();
-        this._activeScene.composer?.setSize(w, h);
-        this._activeScene.onResize?.(w, h);
-      }
+      if (this._activeScene) this.sizeScene(this._activeScene, w, h);
     }, 150);
   }
 
@@ -301,7 +318,7 @@ export class SceneManager {
     e.preventDefault();
     this.contextLost = true;
     document.body.setAttribute('data-webgl-lost', '');
-    console.warn('[SceneManager] WebGL context lost — pausing render loop.');
+    console.warn('[SceneManager] WebGL context lost — skipping GPU work until it returns.');
   }
 
   private handleContextRestored(): void {
@@ -317,6 +334,11 @@ export class SceneManager {
    * a half-disposed manager keeps a rAF loop and resize listener alive,
    * which means a re-init on the same canvas would have TWO render loops
    * writing into one framebuffer (ghost letters + frame-to-frame jitter).
+   *
+   * Came from an adapter (`ether/astro`, `ether/vanilla`) or
+   * `attachSceneManager`? The full teardown is the attachment's
+   * `detach()` — the vanilla router's `destroy()` — which also unbinds
+   * navigation and frees the canvas. This alone leaves both behind.
    *
    * NOTE: we deliberately do NOT call renderer.forceContextLoss(). On
    * Astro client-side navigations the canvas (and its WebGL context)

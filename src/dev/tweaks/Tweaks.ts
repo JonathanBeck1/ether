@@ -309,7 +309,7 @@ export class Tweaks {
     this.footer.replaceChildren(); // idempotent: a re-mount rebuilds clean chrome
     const copyConstants = el('button', { class: 'tw-btn', text: 'Copy constants.ts', attrs: { type: 'button' } });
     this.on(copyConstants, 'click', () => {
-      void this.copy(buildConstantsBlock(this.exportMap(), this.registry.entries()), copyConstants, 'Copy constants.ts');
+      void this.copy(buildConstantsBlock(this.exportMap(), this.registry.entries(), this.config.exportSections, this.config.exportPromotionBanner), copyConstants, 'Copy constants.ts');
     });
 
     const copyJson = el('button', { class: 'tw-btn', text: 'Copy JSON', attrs: { type: 'button' } });

@@ -9,6 +9,7 @@ export type {
   TweaksConfig,
   TweaksTheme,
   GroupConfig,
+  ExportSection,
   Control,
   ControlContext,
   TweakValue,

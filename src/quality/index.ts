@@ -5,8 +5,10 @@
 // pre-computed renderer + UX settings every other module should branch
 // on (DPR cap, antialias, postprocessing on/off, smooth-scroll on/off).
 export {
+  configureQuality,
   detectQuality,
   getQuality,
+  type QualityOptions,
   type QualityProfile,
   type QualityTier,
 } from './quality';

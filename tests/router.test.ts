@@ -12,4 +12,16 @@ describe('normalizeRoute', () => {
     expect(normalizeRoute('/')).toBe('/');
     expect(normalizeRoute('///')).toBe('/');
   });
+
+  it('leaves percent-encoded segments alone so an encoded route still matches', () => {
+    expect(normalizeRoute('/work/caf%C3%A9/')).toBe('/work/caf%C3%A9');
+    expect(normalizeRoute('/work/a%2Fb')).toBe('/work/a%2Fb');
+  });
+
+  it('is idempotent — route keys and navigation targets both pass through it', () => {
+    for (const path of ['/', '///', '/web/', '/work/slug//', '/work/caf%C3%A9/']) {
+      const once = normalizeRoute(path);
+      expect(normalizeRoute(once)).toBe(once);
+    }
+  });
 });

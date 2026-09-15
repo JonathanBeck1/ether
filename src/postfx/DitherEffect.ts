@@ -1,8 +1,6 @@
 import { Effect, BlendFunction } from 'postprocessing';
-import dither from '../shaders/dither.glsl?raw';
 
 const ditherFragment = /* glsl */`
-  ${dither}
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     // per-pixel hash noise (no Bayer screen-door in flat darks), held for
     // ~1/6s per seed at ~0.7 of a quantization step: enough to decorrelate

@@ -29,9 +29,10 @@ export interface Scene {
   preload?(): Promise<void>;
   /**
    * Play the scene's entrance. May be INTERRUPTED mid-animation by a
-   * navigation: the manager does not await it, and `dispose()` can run
-   * while it plays — kill intro timelines in `dispose()` so their
-   * onComplete callbacks can't fire against a dead scene.
+   * navigation: the manager does not await it, so `exitTransition()` runs
+   * against a scene still entering, and `dispose()` follows — kill intro
+   * timelines in `dispose()` so their onComplete callbacks can't fire
+   * against a dead scene.
    */
   enterTransition(): Promise<void>;
   /**

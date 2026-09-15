@@ -39,10 +39,13 @@ See also [Provenance](#provenance).
   **Vite-based** one (Astro, or Vite directly) for its `?raw` GLSL
   imports. There is no plain-Node entry point — the engine lives in a
   page.
-- `three ^0.184`, `postprocessing ^6.39` (peer dependencies).
+- `three ^0.184`, `postprocessing ^6.39`, `detect-gpu ^5.0` (peer
+  dependencies). `ether/core` resolves the quality tier on attach, so
+  `detect-gpu` is required even by consumers that never import
+  `ether/quality` directly.
 - Optional peers, pulled in only by the modules that need them: `lenis`
-  and `gsap` (`ether/scroll`), `detect-gpu` (`ether/quality`),
-  `opentype.js` (`ether/text`), `troika-three-text` (`ether/text/msdf`).
+  and `gsap` (`ether/scroll`), `opentype.js` (`ether/text`),
+  `troika-three-text` (`ether/text/msdf`).
 
 ## Install
 
@@ -50,7 +53,7 @@ Straight from git — raw `.ts`, which the rest of this README uses under
 the package name `ether`:
 
 ```bash
-npm i github:JonathanBeck1/ether three postprocessing
+npm i github:JonathanBeck1/ether three postprocessing detect-gpu
 ```
 
 Or as a sibling folder — the fastest inner loop (Vite watches and HMRs
@@ -65,7 +68,7 @@ The npm package — built ESM + types, imported from
 produces it; the install will be:
 
 ```bash
-npm i @jonathanbeck1/ether three postprocessing
+npm i @jonathanbeck1/ether three postprocessing detect-gpu
 ```
 
 ```ts
@@ -106,16 +109,16 @@ tree-shake reliably:
 | `ether/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene`, `attachSceneManager`, `Attachment`, `AttachOptions`, `SceneFactory`, `SceneRoutes`, `normalizeRoute` | Renderer + rAF loop + per-route scene lifecycle (preload → enter → tick → exit → dispose). Subclass `BaseScene` for your hero. `attachSceneManager` is the framework-agnostic persistent-canvas pattern — one manager per canvas for the lifetime of the tab, single-flight guarded, with a `bind` hook where a framework adapter wires its navigation events. |
 | `ether/astro` | `initSceneRouter`, `InitSceneRouterOptions` | Persistent-canvas router for Astro. Pass a routes map; it resolves the initial route from the address bar and drives scene transitions on `astro:before-swap`. The manager and GL context live for the lifetime of the tab. Register a scene for every route (`'*'` is the fallback). |
 | `ether/vanilla` | `initSceneRouter`, `VanillaRouter`, `VanillaRouterOptions` | The same pattern for plain Vite sites: `popstate` drives back/forward, `router.navigate()` drives programmatic moves, `interceptLinks` opts same-origin anchors in. Your app swaps the DOM it owns; the engine swaps scenes. |
-| `ether/quality` | `detectQuality`, `getQuality`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, dither, smooth scroll, reduced-motion. |
+| `ether/quality` | `detectQuality`, `configureQuality`, `getQuality`, `QualityOptions`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, dither, smooth scroll, reduced-motion. `configureQuality` (before the first detect) points the probe at self-hosted benchmark tables and caps how long it may take. |
 | `ether/postfx` | `createComposer`, `Composer`, `ComposerOptions`, `createHeroComposer`, `createNightComposer`, `createLightComposer`, `BloomComposer`, `PresetOptions`, `NightComposerOptions`, `DitherEffect`, `loadLUT` | One composer shape — render → your effects → (ACES when `hdr`) → dither, fused into a single fullscreen pass — and three tunings of it: restrained LDR bloom for a dark scene with one bright accent, hotter HDR/ACES bloom for emissive-heavy scenes, dither-only for pale grounds. `loadLUT` loads a `.cube`/`.3dl` grade for postprocessing's `LUT3DEffect`. Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
 | `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only on tiers that enable smooth scroll. |
 | `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | Type as form: opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
-| `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own font file; no CDN fallback. |
-| `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. No asset pipeline — compress offline, load here. |
+| `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own font file — the URL is preflighted, so an unreachable one rejects instead of hanging. Characters your font does not cover still fall back to troika's unicode-font-resolver, whose data comes from jsDelivr: set `unicodeFontsURL` to your own copy, or keep the text inside the font's coverage. |
+| `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. Register every load with `progress.track` before awaiting the first, so the total is known up front. No asset pipeline — compress offline, load here. |
 | `ether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader plane with `uTime` + `uAspect` wired. Backdrops live here. |
-| `ether/interactions` | `initCardTilt` | Pointer-driven 3D card tilt with snap-to-rest idle, fine-pointer gate, and view-transition rebind. |
+| `ether/interactions` | `initCardTilt` | Pointer-driven 3D card tilt with snap-to-rest idle, fine-pointer gate, and view-transition rebind. Returns its teardown — call it on unmount. |
 | `ether/shaders` | `dither` (string), `dither.glsl` (via `?raw`) | Reusable GLSL chunks — each file is also exported as a named string, so they compose into your shader sources from any bundler. |
-| `ether/dev` | `Stats`, `Tweaks`, `TweaksConfig`, `TweaksTheme`, `GroupConfig`, descriptor types | URL-gated diagnostics: a perf overlay (FPS / ms / tier / DPR / composer) and a live-parameter panel — sliders, colors, toggles, selects, intervals, vectors, monitors; undo/redo; URL + localStorage persistence; named presets; export as a paste-ready constants block. Both ship zero bytes until mounted. |
+| `ether/dev` | `Stats`, `Tweaks`, `TweaksConfig`, `TweaksTheme`, `GroupConfig`, `ExportSection`, descriptor types | URL-gated diagnostics: a perf overlay (FPS / ms / tier / DPR / composer) and a live-parameter panel — sliders, colors, toggles, selects, intervals, vectors, monitors; undo/redo; URL + localStorage persistence; named presets; export as a paste-ready constants block. Both ship zero bytes until dynamically imported. |
 
 ## Wiring
 
@@ -143,6 +146,9 @@ import { initSceneRouter } from 'ether/vanilla';
 const router = await initSceneRouter(canvas, routes, { interceptLinks: true });
 router.navigate('/work'); // pushState + scene transition
 ```
+
+`interceptLinks` leaves same-page `#hash` links to the browser so they
+still scroll; `rel="external"` opts any other anchor out of the router.
 
 Another framework? Both adapters are a dozen lines over
 `attachSceneManager` from `ether/core` — pass a `bind` that turns your
@@ -180,7 +186,7 @@ export class HeroScene extends BaseScene {
 
 ```ts
 // A live tweaks panel, mounted only when the URL carries ?tweak
-import { Tweaks } from 'ether/dev';
+const { Tweaks } = await import('ether/dev');
 
 const panel = new Tweaks({
   storageKey: 'mysite:tweaks:home',

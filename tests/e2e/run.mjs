@@ -1,9 +1,12 @@
-// Builds the plain-Vite fixture, serves it, runs the core suite against
-// it, and exits non-zero on any failure. `npm run test:e2e`.
+// Builds the plain-Vite fixture, serves it, runs the core, recovery and
+// asset suites against it, and exits non-zero on any failure.
+// `npm run test:e2e`.
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { build, preview } from 'vite';
+import { runAssetsSuite } from './assets.mjs';
 import { runCoreSuite } from './core.mjs';
+import { runRecoverySuite } from './recovery.mjs';
 
 const configFile = fileURLToPath(new URL('../fixture/vite.config.ts', import.meta.url));
 
@@ -27,7 +30,12 @@ const server = await preview({
 
 let failures;
 try {
-  failures = await runCoreSuite(`http://127.0.0.1:${port}`);
+  const baseUrl = `http://127.0.0.1:${port}`;
+  failures = [
+    ...(await runCoreSuite(baseUrl)),
+    ...(await runRecoverySuite(baseUrl)),
+    ...(await runAssetsSuite(baseUrl)),
+  ];
 } finally {
   await server.close();
 }

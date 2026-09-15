@@ -1,26 +1,11 @@
 // Pure, unit-testable export. Turns the changed-from-default diff into a
-// paste-ready constants.ts block (grouped under the file's section banners) or
-// a flat JSON map. No DOM, no THREE — just strings.
+// paste-ready constants block (grouped under the host's section banners, when
+// it supplies a table) or a flat JSON map. No DOM, no THREE — just strings.
 
-import type { DiffMap, ExportTarget, TweakValue } from './types';
+import type { DiffMap, ExportSection, ExportTarget, TweakValue } from './types';
 import type { RegistryEntry } from './Registry';
 import { numberToLiteral } from './format';
 import { hexNormalize } from './color';
-
-// Section banners as they read in constants.ts, keyed by constant prefix so the
-// AD can paste section-by-section. Order here is the emit order.
-const SECTIONS: Array<{ banner: string; match: (constant: string) => boolean }> = [
-  { banner: '// ─── BRAND COLORS ────────────────────────────────────────────────────', match: (c) => c.startsWith('COLOR_') && !c.startsWith('COLOR_CAUSTICS_') },
-  { banner: '// ─── INTRO ANIMATION ─────────────────────────────────────────────────', match: (c) => c === 'FINAL_DISPLACEMENT' },
-  { banner: '// ─── CAMERA ──────────────────────────────────────────────────────────', match: (c) => c.startsWith('CAMERA_') },
-  { banner: '// ─── BACKGROUND (caustics — current, monochrome) ────────────────────', match: (c) => c.startsWith('CAUSTICS_') || c.startsWith('COLOR_CAUSTICS_') },
-];
-
-const PROMOTION_BANNER = [
-  '// ─── THESE CONSTANTS DO NOT EXIST YET ────────────────────────────────',
-  '// Add to constants.ts and wire the source import before the line takes',
-  '// effect — see the panel\'s promotion list for each inline-literal home.',
-].join('\n');
 
 interface Line {
   constant: string;
@@ -44,14 +29,20 @@ function linesFor(target: ExportTarget, value: TweakValue, step: number): Line[]
   return [{ constant, text: `export const ${constant} = ${numberToLiteral(Number(value), step)};` }];
 }
 
-function sectionIndex(constant: string): number {
-  const i = SECTIONS.findIndex((s) => s.match(constant));
-  return i === -1 ? SECTIONS.length : i;
+function sectionIndex(sections: ExportSection[], constant: string): number {
+  const i = sections.findIndex((s) => s.match(constant));
+  return i === -1 ? sections.length : i;
 }
 
-/** Group the changed exportable params into the constants.ts section banners.
- *  needsPromotion lines are collected under a separate leading banner. */
-export function buildConstantsBlock(diff: DiffMap, entries: RegistryEntry[]): string {
+/** Group the changed exportable params under the host's section banners.
+ *  With no sections: one sorted block. needsPromotion lines are collected into
+ *  a trailing block, under `promotionBanner` when the host supplies one. */
+export function buildConstantsBlock(
+  diff: DiffMap,
+  entries: RegistryEntry[],
+  sections: ExportSection[] = [],
+  promotionBanner?: string,
+): string {
   const byPath = new Map(entries.map((e) => [e.control.path, e]));
 
   const sectioned: Line[] = [];
@@ -68,19 +59,19 @@ export function buildConstantsBlock(diff: DiffMap, entries: RegistryEntry[]): st
 
   const grouped = new Map<number, Line[]>();
   for (const line of sectioned) {
-    const idx = sectionIndex(line.constant);
+    const idx = sectionIndex(sections, line.constant);
     (grouped.get(idx) ?? grouped.set(idx, []).get(idx)!).push(line);
   }
   for (const idx of [...grouped.keys()].sort((a, b) => a - b)) {
     const lines = grouped.get(idx)!;
     lines.sort((a, b) => a.constant.localeCompare(b.constant));
-    const banner = SECTIONS[idx]?.banner;
+    const banner = sections[idx]?.banner;
     blocks.push([banner, ...lines.map((l) => l.text)].filter(Boolean).join('\n'));
   }
 
   if (promotion.length) {
     promotion.sort((a, b) => a.constant.localeCompare(b.constant));
-    blocks.push([PROMOTION_BANNER, ...promotion.map((l) => l.text)].join('\n'));
+    blocks.push([promotionBanner, ...promotion.map((l) => l.text)].filter(Boolean).join('\n'));
   }
 
   return blocks.join('\n\n');

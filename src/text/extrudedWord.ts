@@ -138,7 +138,7 @@ export async function extrudedWord(
 
     if (shapes.length === 0) {
       // Glyph produced no path (e.g. space). Advance the cursor anyway
-      // so subsequent letters land at the correct kerning offset.
+      // so subsequent letters keep their place in the run.
       xOffset += advance;
       continue;
     }
@@ -179,7 +179,10 @@ export async function extrudedWord(
     const cz = (bbox.max.z + bbox.min.z) / 2;
 
     geometry.translate(-cx, -cy, -cz);
-    geometry.scale(1, -1, 1); // SVG/font y-down → three y-up
+    // SVG/font y-down → three y-up. A rotation, not `scale(1, -1, 1)`:
+    // mirroring flips every triangle's winding (applyMatrix4 leaves the
+    // vertex order alone), which points the computed normals inward.
+    geometry.rotateX(Math.PI);
     geometry.computeVertexNormals();
 
     const px = (cx - wordCenterX) * worldScale;

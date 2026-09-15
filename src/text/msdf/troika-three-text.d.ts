@@ -18,6 +18,7 @@ declare module 'troika-three-text' {
   export class Text extends Mesh {
     text: string;
     font: string | null;
+    unicodeFontsURL: string | null;
     fontSize: number;
     sdfGlyphSize: number | null;
     anchorX: number | string;

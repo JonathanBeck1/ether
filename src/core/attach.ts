@@ -58,10 +58,10 @@ export interface Attachment {
  */
 type ManagedCanvas = HTMLCanvasElement & {
   __sceneManager?: SceneManager;
-  /** In-flight init promise — present while an init is mid-await. Lets a
-   *  second overlapping call return the same attachment instead of
-   *  spawning a duplicate render loop. Cleared on detach so a re-init
-   *  can run. */
+  /** In-flight init promise — present ONLY while an init is mid-await.
+   *  Lets a second overlapping call return the same attachment instead
+   *  of spawning a duplicate render loop. Cleared as soon as the init
+   *  settles: a later attach must displace this one, not reuse it. */
   __sceneManagerInit?: Promise<Attachment>;
 };
 const SCENE_MANAGER_KEY = '__sceneManager' as const;
@@ -108,7 +108,9 @@ export function attachSceneManager(
   // BOTH clear the teardown check below before either tagged a manager,
   // leaving N concurrent SceneManagers + render loops on one persistent
   // canvas. If an init is already in flight for this canvas, hand back
-  // the same one.
+  // the same one. A SETTLED init is not reused — an attach that lands
+  // after one displaces it (HMR, double boot), so a new route table
+  // takes effect and a failed attach can be retried.
   if (tagged.__sceneManagerInit) return tagged.__sceneManagerInit;
 
   const run = (async (): Promise<Attachment> => {
@@ -165,7 +167,7 @@ export function attachSceneManager(
           manager.destroy();
           delete tagged[SCENE_MANAGER_KEY];
         }
-        delete tagged.__sceneManagerInit;
+        clearSlot();
       },
     };
 
@@ -180,5 +182,9 @@ export function attachSceneManager(
   })();
 
   tagged.__sceneManagerInit = run;
+  const clearSlot = () => {
+    if (tagged.__sceneManagerInit === run) delete tagged.__sceneManagerInit;
+  };
+  run.then(clearSlot, clearSlot);
   return run;
 }

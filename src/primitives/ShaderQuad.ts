@@ -24,6 +24,8 @@ export interface ShaderQuadOptions {
   /** `mesh.frustumCulled`. Default false — the oversized plane often
    *  registers outside the frustum at edges; we always want it drawn. */
   frustumCulled?: boolean;
+  /** Initial `uAspect`. Default 1; `resize()` owns it from then on. */
+  aspect?: number;
 }
 
 /**
@@ -70,6 +72,7 @@ export class ShaderQuad {
       depthWrite = false,
       depthTest = false,
       frustumCulled = false,
+      aspect = 1,
     } = options;
 
     const geometry = new THREE.PlaneGeometry(width, height);
@@ -80,7 +83,7 @@ export class ShaderQuad {
       fragmentShader,
       uniforms: {
         uTime: { value: 0 },
-        uAspect: { value: window.innerWidth / window.innerHeight },
+        uAspect: { value: aspect },
         ...uniforms,
       },
       depthWrite,

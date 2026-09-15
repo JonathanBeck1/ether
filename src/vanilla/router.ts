@@ -10,6 +10,8 @@ export interface VanillaRouterOptions {
   /**
    * Route same-origin `<a>` clicks through `navigate` (pushState + scene
    * transition). Off by default — most apps already own link handling.
+   * Same-page `#hash` links and `rel="external"` anchors stay with the
+   * browser.
    */
   interceptLinks?: boolean;
 }
@@ -44,13 +46,18 @@ export async function initSceneRouter(
 
       const onClick = options.interceptLinks
         ? (e: MouseEvent) => {
+            if (!attached.isCurrent()) return;
             if (e.defaultPrevented || e.button !== 0) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             const anchor = (e.target as Element | null)?.closest?.('a[href]');
             if (!(anchor instanceof HTMLAnchorElement)) return;
             if (anchor.target || anchor.hasAttribute('download')) return;
+            if (anchor.relList.contains('external')) return;
             const url = new URL(anchor.href, location.href);
             if (url.origin !== location.origin) return;
+            // Same-page fragment: the browser owns it — intercepting one
+            // swallows the scroll to the target and the route never changes.
+            if (url.hash && url.pathname === location.pathname) return;
             e.preventDefault();
             navigate(attached, url, false);
           }

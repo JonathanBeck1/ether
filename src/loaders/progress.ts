@@ -5,7 +5,9 @@ export interface Progress {
   /** Register a promise under `weight` (default 1). Returns the same
    *  promise, so it slots into existing `await`s. Rejections settle
    *  too — a failed asset must not stall the loading beat forever; the
-   *  caller still sees the rejection. */
+   *  caller still sees the rejection. Register every load before you
+   *  await the first one, or the total is not yet known and the value
+   *  drops back as later loads arrive. */
   track<T>(promise: Promise<T>, weight?: number): Promise<T>;
   /** Fires with the new value on every change. Returns the unsubscribe. */
   onChange(listener: (value: number) => void): () => void;
@@ -28,8 +30,12 @@ export interface TrackOptions {
 export function createProgress(): Progress {
   let total = 0;
   let done = 0;
+  let pending = 0;
   const listeners = new Set<(value: number) => void>();
-  const value = () => (total === 0 ? 0 : done / total);
+  // Counting what is outstanding, not comparing sums: fractional weights
+  // accumulate in different orders, so 0.1 + 0.2 + 0.3 settles at
+  // 0.9999999999999998 and a loading beat waiting on 1 never fires.
+  const value = () => (total === 0 ? 0 : pending === 0 ? 1 : done / total);
   const emit = () => {
     const v = value();
     for (const listener of listeners) listener(v);
@@ -40,9 +46,11 @@ export function createProgress(): Progress {
     },
     track(promise, weight = 1) {
       total += weight;
+      pending++;
       emit();
       const settle = () => {
         done += weight;
+        pending--;
         emit();
       };
       promise.then(settle, settle);

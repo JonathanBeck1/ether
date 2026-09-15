@@ -120,19 +120,23 @@ function onPointerLeave(this: HTMLElement) {
   ensureTicking();
 }
 
-export function initCardTilt(): void {
+/** Returns the teardown for this binding — call it on unmount. A no-op when
+ *  the effect did not bind (no fine pointer, reduced motion, no cards). */
+export function initCardTilt(): () => void {
   // Idempotent — tear down previous instance first (safe across Astro
   // view transitions / HMR).
   if (teardown) teardown();
 
+  const noop = () => {};
+
   // Skip on devices without a fine pointer (touch, mostly). The hover
   // effect requires a real cursor to make sense.
-  if (typeof window === 'undefined') return;
-  if (!window.matchMedia('(pointer: fine)').matches) return;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (typeof window === 'undefined') return noop;
+  if (!window.matchMedia('(pointer: fine)').matches) return noop;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return noop;
 
   const cards = document.querySelectorAll<HTMLElement>('[data-tilt]');
-  if (cards.length === 0) return;
+  if (cards.length === 0) return noop;
 
   states = Array.from(cards).map((el) => ({
     el,
@@ -163,4 +167,5 @@ export function initCardTilt(): void {
     }
     teardown = null;
   };
+  return teardown;
 }

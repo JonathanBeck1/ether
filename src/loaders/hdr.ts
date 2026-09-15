@@ -23,14 +23,17 @@ export function loadHDR(url: string, options: LoadHDROptions = {}): Promise<HDRR
     texture.mapping = THREE.EquirectangularReflectionMapping;
     if (!options.renderer) return { texture, dispose: () => texture.dispose() };
     const pmrem = new THREE.PMREMGenerator(options.renderer);
-    const envMap = pmrem.fromEquirectangular(texture).texture;
-    pmrem.dispose();
+    // Dispose the cubeUV target, not just its texture: three never marks a
+    // PMREM target's texture initialised, so disposing that alone frees
+    // nothing and the half-float target leaks on every route change.
+    const target = pmrem.fromEquirectangular(texture);
     return {
       texture,
-      envMap,
+      envMap: target.texture,
       dispose: () => {
         texture.dispose();
-        envMap.dispose();
+        target.dispose();
+        pmrem.dispose();
       },
     };
   });

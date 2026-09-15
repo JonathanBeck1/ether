@@ -11,12 +11,18 @@ export interface ExportTarget {
   needsPromotion?: boolean; // true → constant has no constants.ts home yet (export adds a promotion note)
 }
 
+/** One banner + the constants it collects, for the constants-block export. */
+export interface ExportSection {
+  banner: string;
+  match: (constant: string) => boolean;
+}
+
 export interface BaseDescriptor<T extends TweakValue> {
   path: string; // unique across the panel (registry enforces)
   label?: string; // defaults to humanized path
   get: () => T; // read LIVE scene value — seeds at mount + read-back loop
   set: (v: T) => void; // write LIVE scene value — called every input event
-  default: T; // captured for dirty-diff + reset + export "changed-only"
+  default: T; // baseline for dirty-diff + reset + changed-only export, but ONLY for gated controls: without enabledUntil the baseline captured at registration is the live get()
   export: ExportTarget | null; // null = runtime-only, omitted from constants block
   enabledUntil?: () => boolean; // intro/availability gate (control disabled until true)
   onReset?: () => void; // override-aware reset: when present, called INSTEAD of set(default)
@@ -93,7 +99,9 @@ export interface TweaksConfig {
   startCollapsed?: boolean; // default false; persisted thereafter
   spawn?: { top: number; left: number }; // initial position; a persisted panel position still wins
   presetsMenu?: boolean; // default true; false hides the presets dropdown entirely
-  monoFontSources?: false | { w400: string; w500: string }; // false = no @font-face; URLs override the CDN default
+  monoFontSources?: false | { w400: string; w500: string }; // default: no @font-face (system mono); URLs you serve get one injected
+  exportSections?: ExportSection[]; // constants-block banners, in emit order; unmatched constants trail in one unbannered block
+  exportPromotionBanner?: string; // banner above constants flagged needsPromotion
   theme?: Partial<TweaksTheme>;
 }
 

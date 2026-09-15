@@ -56,7 +56,7 @@ export class ScrollBridge {
 
   /** Forward to `lenis.scrollTo`. Use `scrollTo(0, { immediate: true })` in
    *  preload to defeat browser scroll restoration before the intro plays. */
-  scrollTo(target: number | string | HTMLElement, opts?: { immediate?: boolean }): void {
+  scrollTo(target: number | string | HTMLElement, opts?: Parameters<Lenis['scrollTo']>[1]): void {
     this.lenis.scrollTo(target, opts);
   }
 

@@ -8,7 +8,7 @@
 //   createNightComposer  emissive-heavy scene — hotter bloom, optional HDR/ACES
 //   createLightComposer  pale ground — dither only (bloom would lift the field)
 //
-// `DitherEffect` is the 8x8-Bayer-seeded grain that kills gradient
+// `DitherEffect` is the per-pixel hash grain that kills gradient
 // banding; every preset ends with it. `loadLUT` loads a `.cube`/`.3dl`
 // grade for postprocessing's `LUT3DEffect`.
 //

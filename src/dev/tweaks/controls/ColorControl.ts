@@ -1,3 +1,4 @@
+/// <reference path="../eyedropper.d.ts" />
 import type { ColorDescriptor } from '../types';
 import type { HSV } from '../color';
 import { BaseControl } from './BaseControl';

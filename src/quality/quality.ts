@@ -13,7 +13,7 @@
  *
  *   LOW   - bottom-tier integrated GPUs (older iPhones, Chromebooks, base
  *           Android). DPR capped 1.5, composer with bloom + dither (the
- *           the glow is the look), NO composer MSAA, native scroll
+ *           glow is the look), NO composer MSAA, native scroll
  *           (no Lenis bridge). Goal: hold 30fps without melting the device.
  *
  *   MID   - mid-range mobile / older desktop. DPR capped 1.5, composer with
@@ -27,9 +27,27 @@
  * vetted benchmark per GPU model + a fallback fingerprint.
  */
 
-import { getGPUTier } from 'detect-gpu';
+import { getGPUTier, type TierResult } from 'detect-gpu';
 
 export type QualityTier = 'LOW' | 'MID' | 'HIGH';
+
+export interface QualityOptions {
+  /** Directory serving detect-gpu's benchmark tables. Unset means
+   *  detect-gpu's own unpkg URL — self-host the tables and point here to keep
+   *  the boot probe on your origin. */
+  benchmarksURL?: string;
+  /** Abandon the probe after this long and take detect-gpu's own fallback
+   *  tier. Default 1500. */
+  timeoutMs?: number;
+}
+
+let options: QualityOptions & { timeoutMs: number } = { timeoutMs: 1500 };
+
+/** Configure the GPU probe. Call before the first `detectQuality()` — the
+ *  profile resolves once, and later calls return the resolved one unchanged. */
+export function configureQuality(opts: QualityOptions): void {
+  options = { ...options, ...opts };
+}
 
 export interface QualityProfile {
   tier: QualityTier;
@@ -68,11 +86,14 @@ export interface QualityProfile {
 }
 
 let cached: QualityProfile | null = null;
+let pending: Promise<QualityProfile> | null = null;
 
-/** Resolve once at boot. Subsequent calls return the cached profile. */
-export async function detectQuality(): Promise<QualityProfile> {
-  if (cached) return cached;
+/** Resolve once at boot. Concurrent and later calls share the one probe. */
+export function detectQuality(): Promise<QualityProfile> {
+  return (pending ??= resolveProfile());
+}
 
+async function resolveProfile(): Promise<QualityProfile> {
   const reducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -89,11 +110,20 @@ export async function detectQuality(): Promise<QualityProfile> {
 
   let tier: QualityTier;
   let rawScore = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const gpu = await getGPUTier({
+    // detect-gpu fetches its benchmark tables over the network with no
+    // timeout of its own, and boot awaits this before the renderer exists.
+    const gpu = await Promise.race([
       // glContext: undefined → detect-gpu creates its own probe context.
-      benchmarksURL: undefined, // use bundled defaults
-    });
+      getGPUTier({ benchmarksURL: options.benchmarksURL }),
+      new Promise<TierResult>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[quality] detect-gpu probe exceeded ${options.timeoutMs}ms, using its fallback tier`);
+          resolve({ tier: 1, type: 'FALLBACK' });
+        }, options.timeoutMs);
+      }),
+    ]);
     rawScore = gpu.fps ?? 0;
 
     // detect-gpu returns tier 0..3. Map to our 3 buckets:
@@ -113,6 +143,8 @@ export async function detectQuality(): Promise<QualityProfile> {
     // melt whatever rendered the failure.
     console.warn('[quality] detect-gpu failed, defaulting to LOW:', err);
     tier = 'LOW';
+  } finally {
+    clearTimeout(timer);
   }
 
   // Reduced-motion users get downgraded one tier (HIGH→MID, MID→LOW, LOW→LOW)
@@ -135,7 +167,7 @@ export async function detectQuality(): Promise<QualityProfile> {
     // details render soft on retina displays where 1 CSS px maps to
     // 2-3 device pixels — the visible jaggies are worse than the perf
     // cost of bumping to 1.5.
-    dprCap:             tier === 'LOW' ? 1.5 : tier === 'MID' ? 1.5 : 2,
+    dprCap:             tier === 'HIGH' ? 2 : 1.5,
     // Context MSAA is dead weight whenever the composer runs (which is
     // every tier now) — post-processing renders into textures that
     // bypass the canvas framebuffer. Real edge AA = msaaSamples below.

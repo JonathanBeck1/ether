@@ -10,6 +10,8 @@
         margin: 0;
         height: 100%;
         background: #000;
+        /* No gutter: the canvas box must stay the full viewport width. */
+        scrollbar-width: none;
       }
       #scene-canvas {
         position: fixed;
@@ -29,6 +31,15 @@
         margin-right: 12px;
         color: #ccc;
       }
+      /* Scroll room, so a same-page #hash link has somewhere to land. */
+      .spacer {
+        height: 200vh;
+      }
+      #tail {
+        height: 40px;
+        color: #ccc;
+        font: 14px system-ui, sans-serif;
+      }
     </style>
   </head>
   <body>
@@ -37,7 +48,17 @@
       <a href="/">A</a>
       <a href="/b">B</a>
       <a href="/nope">nope</a>
+      <!-- Anchors interceptLinks must leave to the browser, plus a
+           hash link, for the guard checks in tests/e2e/core.mjs. -->
+      <a id="link-blank" href="/target" target="_blank">blank</a>
+      <a id="link-download" href="/asset.txt" download>download</a>
+      <a id="link-external" href="https://example.com/">external</a>
+      <a id="link-hash" href="#hash">hash</a>
+      <a href="#tail">tail</a>
+      <a href="/" rel="external" id="external-link">external</a>
     </nav>
+    <div class="spacer"></div>
+    <div id="tail">tail</div>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

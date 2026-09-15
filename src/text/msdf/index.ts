@@ -9,6 +9,10 @@ export interface MSDFTextOptions {
    *  font when this is omitted, and a premium site does not ship CDN
    *  type. */
   font: string;
+  /** Where troika's unicode-font-resolver looks for fallback font data,
+   *  for characters `font` does not cover. Defaults to jsDelivr — point
+   *  it at your own copy to keep the page off a CDN. */
+  unicodeFontsURL?: string;
   /** Em size in world units. Default 1. */
   fontSize?: number;
   /** SDF resolution per glyph. 64 holds up at body sizes; use 128 when
@@ -42,16 +46,34 @@ export interface MSDFText {
   dispose(): void;
 }
 
+// Some static hosts reject HEAD; fall back to a one-byte ranged GET.
+async function preflight(url: string): Promise<void> {
+  let response = await fetch(url, { method: 'HEAD' });
+  if (response.status === 405 || response.status === 501) {
+    response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+  }
+  if (!response.ok) {
+    throw new Error(`msdfText: font not reachable (${response.status}) at ${url}`);
+  }
+}
+
 /**
  * Crisp, resolution-independent type: an MSDF `Text` mesh, resolved
  * once its glyph atlas is ready so the first frame it renders is
  * complete. Extruded type (`extrudedWord`) is form; this is legible text
  * in the scene — captions, chapter heads, UI in the world.
+ *
+ * The font URL is preflighted, because troika's loader only logs a failed
+ * fetch and never calls back — an unreachable font would hang forever.
+ * Characters `font` does not cover still route to unicode-font-resolver,
+ * whose data comes from jsDelivr unless you set `unicodeFontsURL`.
  */
-export function msdfText(options: MSDFTextOptions): Promise<MSDFText> {
+export async function msdfText(options: MSDFTextOptions): Promise<MSDFText> {
+  await preflight(options.font);
   const mesh = new Text();
   mesh.text = options.text;
   mesh.font = options.font;
+  if (options.unicodeFontsURL !== undefined) mesh.unicodeFontsURL = options.unicodeFontsURL;
   mesh.fontSize = options.fontSize ?? 1;
   mesh.sdfGlyphSize = options.sdfGlyphSize ?? 64;
   mesh.anchorX = options.anchorX ?? 'center';

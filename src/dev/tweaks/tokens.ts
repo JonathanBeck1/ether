@@ -37,31 +37,27 @@ export function applyTokens(shellRoot: HTMLElement, theme: TweaksTheme): void {
   shellRoot.style.setProperty('--tw-accent', theme.primary); // per-group override sets this inline on the group element
 }
 
-// Hosts rarely ship a mono face. Inject one so the panel's mono identity
-// holds; degrades to ui-monospace if the dev is offline. Public pages pass
-// their own hosted URLs (or false) so visitors never touch a third-party CDN.
-const DEFAULT_MONO_SOURCES = {
-  w400: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@5.3.0/latin-400-normal.woff2',
-  w500: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@5.3.0/latin-500-normal.woff2',
-};
-
+// Hosts rarely ship a mono face, so the panel's mono identity is opt-in:
+// pass URLs YOU serve and it injects an @font-face for them, e.g.
+//   { w400: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@5.3.0/latin-400-normal.woff2',
+//     w500: 'https://cdn.jsdelivr.net/fontsource/fonts/ibm-plex-mono@5.3.0/latin-500-normal.woff2' }
+// Unset, the panel rides the system mono stack and fetches nothing.
 export function buildFontFace(sources?: false | { w400: string; w500: string }): string {
-  if (sources === false) return '';
-  const s = sources ?? DEFAULT_MONO_SOURCES;
+  if (!sources) return '';
   return `
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('${s.w400}') format('woff2');
+  src: url('${sources.w400}') format('woff2');
 }
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('${s.w500}') format('woff2');
+  src: url('${sources.w500}') format('woff2');
 }`;
 }
 

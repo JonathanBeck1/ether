@@ -6,6 +6,7 @@ export type {
   Control,
   ControlContext,
   TweakValue,
+  ExportSection,
   ExportTarget,
   DiffMap,
   Descriptor,

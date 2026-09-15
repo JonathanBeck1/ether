@@ -4,6 +4,83 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- `ether/core`: a transition that throws no longer kills navigation for
+  the tab. A rejected `exitTransition()` disposes the outgoing scene
+  instead of leaving it live and ticking, and a factory or `preload()`
+  that throws clears the current route, so the consumer can navigate
+  straight back to the one that worked.
+- `ether/core`: a resize that lands while the incoming scene is inside
+  `preload()` now reaches that scene once it goes live. No scene was
+  active to take it, and the resize handler's same-size short-circuit
+  then suppressed every later correction.
+- `ether/core`: a failed `attachSceneManager` no longer poisons the
+  canvas — the cached init is cleared when it rejects, so a boot that
+  lost its WebGL context or its quality detection can be retried.
+- `ether/core`: a re-attach honors the documented contract. Only an
+  in-flight init is shared; an attach that lands after one tears the
+  previous attachment down and replaces it, so HMR and double boots pick
+  up the new route table and the displaced attachment reports
+  `isCurrent()` false. A canvas whose manager was destroyed on its own
+  (`SceneManager.destroy()` — all the Astro adapter hands back) attaches
+  fresh instead of returning the destroyed one.
+- `ether/core`: the composer is resized with `updateStyle` false, like the
+  renderer already was. postprocessing forwards `setSize` to
+  `renderer.setSize`, which defaults that flag on and wrote inline width /
+  height styles onto a canvas the engine promises to leave to CSS.
+- `ether/vanilla`: `interceptLinks` leaves same-page `#hash` links to the
+  browser so they still scroll to the fragment, and skips anchors marked
+  `rel="external"`.
+- `DitherEffect` no longer injects an uncalled Bayer chunk into every
+  fused pass; the composed shader is otherwise unchanged.
+- `ether/loaders`: `loadHDR().dispose()` disposes the PMREM render target
+  and the generator. Disposing only the target's texture freed nothing, so
+  the half-float cubeUV target leaked on every route change.
+- `ether/loaders`: `createProgress().value` reaches exactly 1 by counting
+  what is outstanding. Fractional weights left it at 0.9999999999999998.
+- `ether/loaders`: `loadGLTF` caches its KTX2 decoder per renderer, not per
+  transcoder path. After a detach and re-attach, later loads transcoded
+  against the previous GL context's format support.
+- `ether/text`: `extrudedWord` flips glyphs with a rotation instead of a
+  mirror, so triangle winding — and the normals computed from it — stay
+  outward. A lit `FrontSide` material showed the letter's interior.
+- `ether/text/msdf`: `msdfText` preflights the font URL and rejects with a
+  clear error. troika's loader only logs a failed fetch, so an unreachable
+  font left the promise pending forever.
+- `ether/text/msdf`: new `unicodeFontsURL` option — characters your font
+  does not cover route to unicode-font-resolver, which reaches for jsDelivr
+  by default. The "no CDN fallback" claim now holds only if you set this.
+- `ether/interactions`: `initCardTilt` returns its teardown, so a consumer
+  has an unmount path.
+- `ether/scroll`: `ScrollBridge.scrollTo` takes Lenis's own options type
+  rather than a hand-written `{ immediate }`.
+- The GPU probe no longer hangs boot on an untimed unpkg fetch whose
+  failure detect-gpu swallowed as tier 1, making `HIGH` unreachable.
+- `detectQuality()` caches the in-flight probe, not just its result, so
+  concurrent callers share one GPU probe.
+- `ether/dev` type-checks in a raw-`.ts` consumer — `ColorControl`
+  references the `EyeDropper` shim instead of relying on a tsconfig sweep.
+- A control's `reset()` opens a gesture, so it is undoable and the next
+  undo no longer consumes the edit before it.
+- Docs: the `default` descriptor field describes the baseline the code
+  captures, `Stats` takes a routes map, and the Tweaks sample imports
+  dynamically as the claim above it says.
+
+### Changed
+
+- `detect-gpu` is a required peer dependency: attaching a manager
+  resolves the tier, so every `ether/core` consumer needs it.
+- `configureQuality({ benchmarksURL, timeoutMs })` points the probe at
+  benchmark tables you serve and bounds how long it may take.
+- `ShaderQuad` seeds `uAspect` from an `aspect` option (default 1)
+  instead of `window.inner*`; `resize()` owns it from the first frame.
+- The constants-block export takes its banners from `TweaksConfig`
+  (`exportSections`, `exportPromotionBanner`); with none, one sorted block.
+- The panel injects no `@font-face` unless `monoFontSources` names URLs.
+
 ## [1.0.0] — 2026-09-06
 
 The first release a second consumer can install and build a site with,

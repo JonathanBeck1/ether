@@ -109,6 +109,9 @@ export abstract class BaseControl<T extends TweakValue> implements Control {
   }
 
   reset(): void {
+    // A gesture like any other: with no pre-snapshot the next undo eats the
+    // previous entry instead of undoing this reset.
+    this.ctx.beginEdit();
     // A3: override-guarded params un-pin (responsive behavior returns) instead
     // of writing the default into the slot. The scene returns to its live value,
     // which equals the live-captured default → not dirty.

@@ -17,7 +17,10 @@ export interface LoadGLTFOptions extends TrackOptions {
 // One decoder per path: each DRACOLoader spins up a worker pool and each
 // KTX2Loader a transcoder — sharing them across models is the point.
 const dracoLoaders = new Map<string, DRACOLoader>();
-const ktx2Loaders = new Map<string, KTX2Loader>();
+// KTX2 keys on the renderer as well as the path: `detectSupport` reads one
+// GL context's formats, so a re-attach with a fresh renderer must not reuse
+// the previous context's detection.
+const ktx2Loaders = new WeakMap<THREE.WebGLRenderer, Map<string, KTX2Loader>>();
 
 function dracoFor(decoderPath: string): DRACOLoader {
   let loader = dracoLoaders.get(decoderPath);
@@ -29,10 +32,15 @@ function dracoFor(decoderPath: string): DRACOLoader {
 }
 
 function ktx2For(transcoderPath: string, renderer: THREE.WebGLRenderer): KTX2Loader {
-  let loader = ktx2Loaders.get(transcoderPath);
+  let byPath = ktx2Loaders.get(renderer);
+  if (!byPath) {
+    byPath = new Map();
+    ktx2Loaders.set(renderer, byPath);
+  }
+  let loader = byPath.get(transcoderPath);
   if (!loader) {
     loader = new KTX2Loader().setTranscoderPath(transcoderPath).detectSupport(renderer);
-    ktx2Loaders.set(transcoderPath, loader);
+    byPath.set(transcoderPath, loader);
   }
   return loader;
 }

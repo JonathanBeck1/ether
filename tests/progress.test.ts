@@ -43,6 +43,24 @@ describe('createProgress', () => {
     expect(progress.value).toBe(1);
   });
 
+  it('reaches exactly 1 with fractional weights, in any settle order', async () => {
+    const progress = createProgress();
+    const items = [0.1, 0.2, 0.3].map((weight) => {
+      const d = deferred<void>();
+      progress.track(d.promise, weight);
+      return d;
+    });
+    const seen: number[] = [];
+    progress.onChange((v) => seen.push(v));
+    for (const d of items.reverse()) {
+      d.resolve();
+      await tick();
+    }
+    // done/total would land on 0.9999999999999998 here.
+    expect(progress.value).toBe(1);
+    expect(Math.max(...seen)).toBeLessThanOrEqual(1);
+  });
+
   it('returns the same promise and settles on rejection too', async () => {
     const progress = createProgress();
     const failing = deferred<void>();
@@ -50,6 +68,28 @@ describe('createProgress', () => {
     expect(tracked).toBe(failing.promise);
     failing.reject(new Error('404'));
     await expect(tracked).rejects.toThrow('404');
+    expect(progress.value).toBe(1);
+  });
+
+  it('stays at 0, not NaN, when everything tracked carries no weight', async () => {
+    const progress = createProgress();
+    const free = deferred<void>();
+    progress.track(free.promise, 0);
+    expect(progress.value).toBe(0);
+    free.resolve();
+    await tick();
+    expect(progress.value).toBe(0);
+  });
+
+  it('still reaches exactly 1 when one asset of several fails', async () => {
+    const progress = createProgress();
+    const model = deferred<void>();
+    const missing = deferred<void>();
+    progress.track(model.promise, 2);
+    progress.track(missing.promise, 1);
+    model.resolve();
+    missing.reject(new Error('404'));
+    await tick();
     expect(progress.value).toBe(1);
   });
 

@@ -13,7 +13,7 @@ import type { SceneManager } from '../core/SceneManager';
  *
  *   import { Stats } from 'ether/dev';
  *   // Anywhere after initSceneRouter() resolves:
- *   const manager = await initSceneRouter(canvas, factory);
+ *   const manager = await initSceneRouter(canvas, routes);
  *   if (new URL(location.href).searchParams.has('stats')) {
  *     new Stats(manager).mount();
  *   }
