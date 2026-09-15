@@ -1,6 +1,6 @@
 {
   "name": "ether",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A WebGL engine for premium Astro sites, built on three.js: persistent-canvas scene router, GPU quality tiers, Lenis + ScrollTrigger bridge, bloom + dither composer, extruded 3D type, and a live tweaks panel.",
   "license": "MIT",
   "author": "Jonathan Beck",

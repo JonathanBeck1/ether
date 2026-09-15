@@ -4,7 +4,10 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] — 2026-09-15
+
+The first release after the engine went through four adversarial reviews
+of every module, with a test pinning each fix.
 
 ### Fixed
 
@@ -69,6 +72,29 @@ Notable changes to ether. The format follows
   captures, `Stats` takes a routes map, and the Tweaks sample imports
   dynamically as the claim above it says.
 
+- `ether/postfx`: `DitherEffect` applies its noise through the sRGB
+  transfer, one output step peak to peak at every luminance. Added in
+  linear light, the same amount was several steps once encoded in the
+  darks, which read as a shimmering grain over a dark field.
+- `ether/core`: a transition that throws no longer drops the navigation
+  queued behind it; the loop drains, a scene built before `preload()`
+  threw is disposed, and a throwing `dispose()` runs once.
+- `ether/core`: an attach that displaces a previous attachment runs the
+  previous adapter's unbind before destroying its manager.
+- `ether/text/msdf`: the font preflight falls back on any non-ok HEAD
+  through a plain GET aborted at the response head, so strict hosts and
+  cross-origin fonts are not rejected by a preflighted Range request.
+- `ether/text`: `extrudedWord` skips characters the font does not cover
+  instead of extruding the notdef box.
+- `ether/dev`: a cancelled gesture no longer poisons the undo stack; a
+  `?tweak` link carrying no registered keys falls through to stored
+  state; restored values must match their default's shape; shorthand hex
+  expands instead of becoming black; every pointer-capture path handles
+  `pointercancel`; a held arrow key produces one undo entry; pointer-lock
+  exit is scoped to the control; Escape closes an open select from its
+  list, with the ARIA state kept; preset-row listeners and the copy-flash
+  timer no longer leak.
+
 ### Changed
 
 - `detect-gpu` is a required peer dependency: attaching a manager
@@ -80,6 +106,15 @@ Notable changes to ether. The format follows
 - The constants-block export takes its banners from `TweaksConfig`
   (`exportSections`, `exportPromotionBanner`); with none, one sorted block.
 - The panel injects no `@font-face` unless `monoFontSources` names URLs.
+
+### Added
+
+- `ether/dev`: the vector pad is reachable and adjustable by keyboard.
+- Tests: unit coverage for quality detection, the constants exporter,
+  panel theming, the transition state machine, attach, MSDF preflight and
+  extrusion orientation; the e2e suite covers every README guarantee for
+  core, vanilla and loaders, indexes scenes relative to captured counts,
+  and asserts which build it is testing.
 
 ## [1.0.0] — 2026-09-06
 
