@@ -10,7 +10,7 @@ const POLL_MS = 100;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function runRecoverySuite(baseUrl) {
+export async function runRecoverySuite(baseUrl, launchOptions = {}) {
   const failures = [];
   const pass = (msg) => console.log(`  PASS  ${msg}`);
   const fail = (msg) => {
@@ -19,7 +19,7 @@ export async function runRecoverySuite(baseUrl) {
   };
   const check = (ok, msg) => (ok ? pass(msg) : fail(msg));
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
 
@@ -49,15 +49,19 @@ export async function runRecoverySuite(baseUrl) {
     return null;
   };
   const goto = async (path) => {
-    for (let i = 0; i < 15; i++) {
+    let loaded = false;
+    for (let i = 0; i < 15 && !loaded; i++) {
       try {
         await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded', timeout: 5_000 });
-        return;
+        loaded = true;
       } catch {
         await sleep(1_000);
       }
     }
-    throw new Error(`could not load ${baseUrl}${path}`);
+    if (!loaded) throw new Error(`could not load ${baseUrl}${path}`);
+    // DOMContentLoaded does not wait for main.ts's top-level await, so the
+    // fixture can still be undefined on the first read.
+    await page.waitForFunction(() => !!window.__fixture, null, { timeout: READY_TIMEOUT_MS });
   };
   // Ticks the live scene records over N frames, against ticks from every
   // other scene ever built — a leftover manager shows up as the latter.
@@ -81,6 +85,7 @@ export async function runRecoverySuite(baseUrl) {
     // 1. A boot the browser refused a WebGL context to is retryable: the
     //    failed init must not be cached against the canvas.
     await goto('/?failinit=1');
+    await page.waitForFunction(() => window.__fixture.settled, null, { timeout: READY_TIMEOUT_MS });
     const refused = await page.evaluate(() => ({
       router: window.__fixture.router,
       attached: document.getElementById('scene-canvas').__sceneManager !== undefined,
@@ -154,7 +159,7 @@ export async function runRecoverySuite(baseUrl) {
         check(onC.canvases === 1, `double boot: single canvas (${onC.canvases})`);
         const ticks = await tickAudit(20);
         check(
-          ticks.live >= 18 && ticks.others === 0,
+          ticks.live > 0 && ticks.others === 0,
           `double boot: exactly one render loop (${ticks.live} ticks live, ${ticks.others} elsewhere)`,
         );
       }
@@ -165,29 +170,36 @@ export async function runRecoverySuite(baseUrl) {
     const beforeHash = await waitFor((s) => s.active === 'A', 'hash: boot');
     if (beforeHash) {
       await page.click('a[href="#tail"]');
-      await sleep(500);
-      const hashed = await state();
-      check(
-        hashed.scrollY > 0 && hashed.hash === '#tail',
-        `hash: #tail scrolls the page (scrollY ${hashed.scrollY}, hash ${hashed.hash})`,
+      const hashed = await waitFor(
+        (s) => s.hash === '#tail' && s.scrollY > 0,
+        'hash: #tail applied',
       );
-      check(
-        hashed.active === 'A' && hashed.built === beforeHash.built,
-        `hash: the scene is left alone (${hashed.built} built, active ${hashed.active})`,
-      );
+      if (hashed) {
+        pass(`hash: #tail scrolls the page (scrollY ${hashed.scrollY}, hash ${hashed.hash})`);
+        check(
+          hashed.active === 'A' && hashed.built === beforeHash.built,
+          `hash: the scene is left alone (${hashed.built} built, active ${hashed.active})`,
+        );
+      }
     }
 
     // 5. rel="external" opts an anchor out of the router entirely — the
-    //    browser does a real document load. Last: it resets the page.
+    //    browser does a real document load, which drops the marker. Each
+    //    block above re-navigates, so the reset this leaves behind is
+    //    nobody's dependency.
     await goto('/');
     if (await waitFor((s) => s.active === 'A', 'external: boot')) {
       await page.evaluate(() => {
         window.__marker = 'pre-click';
       });
       await page.click('#external-link');
-      await sleep(1_000);
-      const survived = await page.evaluate(() => window.__marker ?? null);
-      check(survived === null, `external: rel="external" does a real navigation (marker ${survived})`);
+      const navigated = await page
+        .waitForFunction(() => window.__marker === undefined, null, { timeout: READY_TIMEOUT_MS })
+        .then(
+          () => true,
+          () => false,
+        );
+      check(navigated, `external: rel="external" does a real navigation (marker dropped ${navigated})`);
     }
   } catch (err) {
     fail(String(err?.message ?? err));

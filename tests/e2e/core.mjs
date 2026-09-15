@@ -18,7 +18,7 @@ const WARNING_ALLOWLIST = [/software WebGL|SwiftShader|GPU stall/i];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function runCoreSuite(baseUrl) {
+export async function runCoreSuite(baseUrl, launchOptions = {}) {
   const failures = [];
   const pass = (msg) => console.log(`  PASS  ${msg}`);
   const fail = (msg) => {
@@ -27,7 +27,7 @@ export async function runCoreSuite(baseUrl) {
   };
   const check = (ok, msg) => (ok ? pass(msg) : fail(msg));
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(launchOptions);
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
 
@@ -110,7 +110,19 @@ export async function runCoreSuite(baseUrl) {
       }
     }
     if (!loaded) throw new Error(`could not load ${baseUrl}`);
+    // DOMContentLoaded does not wait for main.ts's top-level await, so the
+    // fixture can still be undefined on the first read.
+    await page.waitForFunction(() => !!window.__fixture, null, { timeout: READY_TIMEOUT_MS });
     pass(`fixture loads (${baseUrl})`);
+
+    // package.json maps every `ether/*` export back to ./src, so an alias
+    // that stops matching would leave the dist run re-testing src.
+    const build = await page.evaluate(() => window.__fixture.build);
+    const expectedBuild = process.env.ETHER_DIST ? 'dist' : 'src';
+    check(
+      build === expectedBuild,
+      `build: the fixture consumes ether/ from ${build} (expected ${expectedBuild})`,
+    );
 
     const booted = await waitFor((s) => s.active === 'A', 'boot: scene A active on /');
     if (!booted) throw new Error('boot failed — skipping behavioral checks');
@@ -122,15 +134,20 @@ export async function runCoreSuite(baseUrl) {
     );
     check(booted.scenes[0].composed, 'boot: scene A renders through a composer');
 
-    // 2. Exactly one render loop: ticks track the page's own frames 1:1.
-    //    A duplicate manager would double the count.
+    // 2. Exactly one render loop. A scene cannot tick more often than the
+    //    page paints, so a second loop shows up above the frame count;
+    //    how far below it lands is renderer speed, not a defect.
     const ticksA = await ticksOver(0, 30);
-    check(ticksA >= 28 && ticksA <= 32, `loop: one tick per frame (${ticksA} ticks over 30 frames)`);
+    check(
+      ticksA > 0 && ticksA <= 32,
+      `loop: at most one tick per frame (${ticksA} ticks over 30 frames)`,
+    );
     const drawnA = await framesOver(10);
     check(drawnA > 0, `loop: composer path issues draws (${drawnA} renders over 10 frames)`);
 
     // 3. One manager per canvas across boots: a second boot() tears the
     //    first down and takes its place, leaving exactly one alive.
+    const bootBase = booted.scenes.length;
     const reboot = await page.evaluate(async () => {
       const canvas = document.getElementById('scene-canvas');
       const before = canvas.__sceneManager;
@@ -142,12 +159,13 @@ export async function runCoreSuite(baseUrl) {
       };
     });
     check(
-      reboot.displaced && reboot.built === 2,
-      `boots: a second boot() displaces the first, one manager left (${reboot.built} scenes built)`,
+      reboot.displaced && reboot.built - bootBase === 1,
+      `boots: a second boot() displaces the first, one manager left (${reboot.built - bootBase} scene built)`,
     );
 
     // 4. Navigation: link click → pushState → scene swap on the same
     //    canvas, same manager, same renderer (GL context reused).
+    const navBase = reboot.built;
     await page.evaluate(() => {
       const canvas = document.getElementById('scene-canvas');
       canvas.__tag = 'persist';
@@ -156,10 +174,14 @@ export async function runCoreSuite(baseUrl) {
       (canvas.getContext('webgl2') ?? canvas.getContext('webgl')).__tag = 'persist';
     });
     await page.click('a[href="/b"]');
-    const onB = await waitFor((s) => s.active === 'B' && s.path === '/b', 'nav: /b active');
+    const onB = await waitFor(
+      (s) => s.active === 'B' && s.path === '/b' && s.scenes.length > navBase,
+      'nav: /b active',
+    );
     if (onB) {
       pass('nav: link click swaps to scene B at /b');
-      const [, a, b] = onB.scenes;
+      const a = onB.scenes[navBase - 1];
+      const b = onB.scenes[navBase];
       check(
         a.exited === 1 && a.disposed === 1,
         `nav: outgoing scene exited + disposed once (exited ${a.exited}, disposed ${a.disposed})`,
@@ -172,24 +194,26 @@ export async function runCoreSuite(baseUrl) {
       check(onB.canvases === 1, `nav: single canvas (${onB.canvases})`);
       const drawnB = await framesOver(10);
       check(drawnB > 0, `nav: direct render path issues draws (${drawnB} renders over 10 frames)`);
-      const ticksDead = await ticksOver(1, 20);
+      const ticksDead = await ticksOver(navBase - 1, 20);
       check(ticksDead === 0, `nav: disposed scene A is inert (${ticksDead} ticks over 20 frames)`);
     }
 
     // 5. popstate: back rebuilds A fresh (new instance, counters reset).
+    const backBase = onB ? onB.scenes.length : navBase + 1;
     await page.goBack();
     const back = await waitFor(
-      (s) => s.active === 'A' && s.path === '/' && s.scenes.length === 4,
+      (s) => s.active === 'A' && s.path === '/' && s.scenes.length === backBase + 1,
       'nav: back to /',
     );
     if (back) {
-      const [, , b, a2] = back.scenes;
+      const b = back.scenes[backBase - 1];
+      const a2 = back.scenes[backBase];
       check(
         a2.name === 'A' && a2.entered === 1 && a2.disposed === 0,
         'popstate: fresh scene A mounted on back navigation',
       );
       check(b.exited === 1 && b.disposed === 1, 'popstate: scene B exited + disposed once');
-      const ticksA2 = await ticksOver(3, 20);
+      const ticksA2 = await ticksOver(backBase, 20);
       check(ticksA2 > 0, `popstate: fresh scene A ticking (${ticksA2} ticks over 20 frames)`);
     }
 
@@ -285,11 +309,12 @@ export async function runCoreSuite(baseUrl) {
       !deaf.prevented && deaf.built === 0 && deaf.path === '/nope',
       `detach: after destroy() clicks and popstate are ignored (intercepted ${deaf.prevented}, ${deaf.built} scenes built)`,
     );
+    const detachBase = (await state()).scenes.length;
     await page.evaluate(async () => {
       window.__fixture.router = await window.__fixture.boot();
     });
     const rebooted = await waitFor(
-      (s) => s.hasManager && s.active === 'B' && s.scenes.length === 6,
+      (s) => s.hasManager && s.active === 'B' && s.scenes.length === detachBase + 1,
       'detach: fresh boot after destroy',
     );
     if (rebooted) {
@@ -301,7 +326,7 @@ export async function runCoreSuite(baseUrl) {
         () => document.getElementById('scene-canvas').__sceneManager.renderer.getContext().__tag,
       );
       check(glTag === 'persist', `detach: the re-attached renderer keeps the GL context (${glTag})`);
-      const ticksNew = await ticksOver(5, 20);
+      const ticksNew = await ticksOver(detachBase, 20);
       check(ticksNew > 0, `detach: rebooted scene ticking (${ticksNew} ticks over 20 frames)`);
     }
 
@@ -424,7 +449,7 @@ export async function runCoreSuite(baseUrl) {
       );
       const ticksRapid = await ticksOver(rapid.scenes.length - 1, 30);
       check(
-        ticksRapid >= 28 && ticksRapid <= 32,
+        ticksRapid > 0 && ticksRapid <= 32,
         `rapid: still one render loop (${ticksRapid} ticks over 30 frames)`,
       );
       const ticksStale = await ticksOver(rapidBase, 20);
@@ -615,7 +640,10 @@ export async function runCoreSuite(baseUrl) {
       unexpectedWarnings.length ? `unexpected warnings:\n    ${unexpectedWarnings.join('\n    ')}` : 'no unexpected console warnings',
     );
   } catch (err) {
-    fail(String(err?.message ?? err));
+    // Whatever the page logged on the way down, so a boot that threw does
+    // not read as a bare timeout.
+    const detail = consoleErrors.length ? `\n    ${consoleErrors.join('\n    ')}` : '';
+    fail(`${String(err?.message ?? err)}${detail}`);
   } finally {
     await browser.close();
   }

@@ -1,7 +1,10 @@
 // Builds the plain-Vite fixture, serves it, runs the core, recovery and
 // asset suites against it, and exits non-zero on any failure.
 // `npm run test:e2e`.
-import { createServer } from 'node:net';
+//
+// ETHER_DIST=1 points the fixture's `ether/*` alias at dist/ instead of src/.
+// ETHER_SOFTWARE_GL=1 launches Chromium on SwiftShader, mirroring a CI
+// runner with no GPU.
 import { fileURLToPath } from 'node:url';
 import { build, preview } from 'vite';
 import { runAssetsSuite } from './assets.mjs';
@@ -10,31 +13,26 @@ import { runRecoverySuite } from './recovery.mjs';
 
 const configFile = fileURLToPath(new URL('../fixture/vite.config.ts', import.meta.url));
 
-const freePort = () =>
-  new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address();
-      probe.close(() => resolve(port));
-    });
-  });
+const launchOptions = process.env.ETHER_SOFTWARE_GL
+  ? { args: ['--use-gl=angle', '--use-angle=swiftshader'] }
+  : {};
 
 await build({ configFile, logLevel: 'warn' });
-const port = await freePort();
+// Vite picks the port and retries on a clash; probing one here and binding
+// it a moment later loses the race against a concurrent suite.
 const server = await preview({
   configFile,
   logLevel: 'warn',
-  preview: { port, strictPort: true, host: '127.0.0.1', open: false },
+  preview: { host: '127.0.0.1', open: false },
 });
 
 let failures;
 try {
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const baseUrl = new URL(server.resolvedUrls.local[0]).origin;
   failures = [
-    ...(await runCoreSuite(baseUrl)),
-    ...(await runRecoverySuite(baseUrl)),
-    ...(await runAssetsSuite(baseUrl)),
+    ...(await runCoreSuite(baseUrl, launchOptions)),
+    ...(await runRecoverySuite(baseUrl, launchOptions)),
+    ...(await runAssetsSuite(baseUrl, launchOptions)),
   ];
 } finally {
   await server.close();

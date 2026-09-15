@@ -300,11 +300,16 @@ async function textProbe() {
   return result;
 }
 
+declare const __ETHER_BUILD__: 'src' | 'dist';
+
 declare global {
   interface Window {
     __fixture: {
+      build: 'src' | 'dist';
       scenes: FlatScene[];
       router: VanillaRouter | null;
+      // The top-level boot has settled — `router` is only meaningful after.
+      settled: boolean;
       boot(routes?: SceneRoutes): Promise<VanillaRouter>;
       flat: typeof flat;
       hold: typeof hold;
@@ -320,10 +325,11 @@ declare global {
 }
 
 const canvas = document.getElementById('scene-canvas') as HTMLCanvasElement;
+const failInit = new URLSearchParams(location.search).has('failinit');
 
 // ?failinit: refuse the FIRST WebGL context, the way a browser under
 // memory pressure does, so tests/e2e/recovery.mjs can retry the attach.
-if (new URLSearchParams(location.search).has('failinit')) {
+if (failInit) {
   const real = HTMLCanvasElement.prototype.getContext as (
     this: HTMLCanvasElement,
     id: string,
@@ -358,8 +364,10 @@ const boot = (
 ) => initSceneRouter(canvas, routes, { quality: QUALITY, interceptLinks: true });
 
 window.__fixture = {
+  build: __ETHER_BUILD__,
   scenes,
   router: null,
+  settled: false,
   boot,
   flat,
   hold,
@@ -372,4 +380,7 @@ window.__fixture = {
   tiltProbe,
 };
 // A refused context (?failinit) rejects here by design; the suite reboots.
-window.__fixture.router = await boot().catch(() => null);
+// Every other boot failure has to reach the page, or the suites assert
+// against a fixture that never booted and read it as a timeout.
+window.__fixture.router = failInit ? await boot().catch(() => null) : await boot();
+window.__fixture.settled = true;
