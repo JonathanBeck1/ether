@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as THREE from 'three';
 import { SceneManager } from '../src/core/SceneManager';
 import type { Scene } from '../src/core/types';
@@ -49,6 +49,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 interface Hooks {
   preload?: () => Promise<void>;
   exit?: () => Promise<void>;
+  dispose?: () => void;
 }
 
 class FakeScene implements Scene {
@@ -82,6 +83,7 @@ class FakeScene implements Scene {
   }
   dispose(): void {
     this.disposed++;
+    this.hooks.dispose?.();
   }
 }
 
@@ -99,6 +101,15 @@ function createManager() {
 const activeName = (manager: SceneManager) => (manager.activeScene as FakeScene | null)?.name ?? null;
 
 describe('SceneManager transitions', () => {
+  let errors: unknown[][] = [];
+  beforeEach(() => {
+    errors = [];
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => void errors.push(args));
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('disposes the outgoing scene when its exitTransition rejects, and stays navigable', async () => {
     const { manager } = createManager();
     const a = new FakeScene('A', { exit: () => Promise.reject(new Error('exit failed')) });
@@ -107,7 +118,8 @@ describe('SceneManager transitions', () => {
     manager.registerScene('/b', () => b);
 
     await manager.transitionTo('/a');
-    await expect(manager.transitionTo('/b')).rejects.toThrow('exit failed');
+    await manager.transitionTo('/b');
+    expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /b:');
     expect(a.disposed).toBe(1);
     expect(manager.activeScene).toBe(null);
 
@@ -124,7 +136,8 @@ describe('SceneManager transitions', () => {
     });
 
     await manager.transitionTo('/a');
-    await expect(manager.transitionTo('/bad')).rejects.toThrow('factory failed');
+    await manager.transitionTo('/bad');
+    expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /bad:');
     expect(manager.activeScene).toBe(null);
 
     await manager.transitionTo('/a');
@@ -141,7 +154,8 @@ describe('SceneManager transitions', () => {
     );
 
     await manager.transitionTo('/a');
-    await expect(manager.transitionTo('/bad')).rejects.toThrow('preload failed');
+    await manager.transitionTo('/bad');
+    expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /bad:');
     expect(manager.activeScene).toBe(null);
 
     await manager.transitionTo('/a');
@@ -175,5 +189,55 @@ describe('SceneManager transitions', () => {
     expect(b.resizes.at(-1)).toEqual([800, 800]);
     // updateStyle false — the engine never writes inline canvas styles.
     expect(b.composerSizes.at(-1)).toEqual([800, 800, false]);
+  });
+
+  it('drains a route queued during a hop that throws', async () => {
+    const { manager } = createManager();
+    let failPreload!: (err: Error) => void;
+    const gate = new Promise<void>((_, reject) => {
+      failPreload = reject;
+    });
+    const bad = new FakeScene('BAD', { preload: () => gate });
+    const c = new FakeScene('C');
+    manager.registerScene('/bad', () => bad);
+    manager.registerScene('/c', () => c);
+
+    const hop = manager.transitionTo('/bad');
+    await sleep(10); // BAD is constructed and parked in the failing preload()
+    void manager.transitionTo('/c'); // queued behind the doomed hop
+    failPreload(new Error('preload failed'));
+    await hop;
+
+    expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /bad:');
+    expect(activeName(manager)).toBe('C');
+  });
+
+  it('disposes the half-built scene when preload() throws', async () => {
+    const { manager } = createManager();
+    const bad = new FakeScene('BAD', { preload: () => Promise.reject(new Error('preload failed')) });
+    manager.registerScene('/bad', () => bad);
+
+    await manager.transitionTo('/bad');
+
+    expect(bad.disposed).toBe(1);
+    expect(manager.activeScene).toBe(null);
+  });
+
+  it('does not dispose the outgoing scene twice when its dispose() throws', async () => {
+    const { manager } = createManager();
+    const a = new FakeScene('A', {
+      dispose: () => {
+        throw new Error('dispose failed');
+      },
+    });
+    const b = new FakeScene('B');
+    manager.registerScene('/a', () => a);
+    manager.registerScene('/b', () => b);
+
+    await manager.transitionTo('/a');
+    await manager.transitionTo('/b');
+
+    expect(a.disposed).toBe(1);
+    expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /b:');
   });
 });

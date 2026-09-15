@@ -532,7 +532,7 @@ export async function runCoreSuite(baseUrl) {
     // Spliced out so the console policy below stays strict about the rest.
     const surfaced = consoleErrors.splice(errorsBefore);
     check(
-      surfaced.length === 1 && /transitionTo failed/.test(surfaced[0]),
+      surfaced.length === 1 && /transition failed for \/boom/.test(surfaced[0]),
       `failure: a throwing factory surfaces once through console.error (${surfaced.length} logged)`,
     );
     const threw = await state();

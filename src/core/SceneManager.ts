@@ -150,7 +150,11 @@ export class SceneManager {
         const target = this.pendingRoute;
         this.pendingRoute = null;
         this.forceNext = false;
-        await this.runTransition(target);
+        try {
+          await this.runTransition(target);
+        } catch (err) {
+          console.error(`[SceneManager] transition failed for ${target}:`, err);
+        }
       }
     } finally {
       this.transitioning = false;
@@ -189,14 +193,16 @@ export class SceneManager {
       this._activeScene.retarget(routeName);
       return;
     }
+    let next: Scene | null = null;
     try {
       if (this._activeScene) {
-        await this._activeScene.exitTransition();
-        this._activeScene.dispose();
+        const outgoing = this._activeScene;
+        await outgoing.exitTransition();
         this._activeScene = null;
+        outgoing.dispose();
       }
       if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
-      const next = factory(this.renderer, routeName);
+      next = factory(this.renderer, routeName);
       // Sync the fresh scene to the canvas's CSS box before it renders.
       // BaseScene seeds camera.aspect from window.inner*, which diverges
       // from the canvas box whenever mobile browser chrome is in play —
@@ -229,9 +235,10 @@ export class SceneManager {
       // A hop that throws must not strand the tab: drop whatever scene is
       // still held and forget the route, so the consumer can navigate
       // back to the one that worked.
-      this._activeScene?.dispose();
+      const held = this._activeScene ?? next;
       this._activeScene = null;
       this.currentRoute = null;
+      held?.dispose();
       throw err;
     }
   }
