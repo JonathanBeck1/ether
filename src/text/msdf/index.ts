@@ -46,11 +46,18 @@ export interface MSDFText {
   dispose(): void;
 }
 
-// Some static hosts reject HEAD; fall back to a one-byte ranged GET.
+// Some static hosts answer HEAD with anything but 2xx; fall back to a GET
+// aborted at the response head. A `Range` header would be tidier but makes
+// it a preflighted request, which many CDNs answer with a CORS failure.
 async function preflight(url: string): Promise<void> {
   let response = await fetch(url, { method: 'HEAD' });
-  if (response.status === 405 || response.status === 501) {
-    response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+  if (!response.ok) {
+    const abort = new AbortController();
+    try {
+      response = await fetch(url, { signal: abort.signal });
+    } finally {
+      abort.abort();
+    }
   }
   if (!response.ok) {
     throw new Error(`msdfText: font not reachable (${response.status}) at ${url}`);

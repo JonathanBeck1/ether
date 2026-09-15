@@ -87,7 +87,8 @@ const DEFAULT_EXTRUDE: Required<ExtrudeProfile> = {
  * @param options       Sizing + extrusion tuning.
  *
  * @returns One `ExtrudedLetter` per character that produced geometry.
- *          Characters that produced no path (e.g. space) are skipped.
+ *          Characters that produced no path (e.g. space) and characters
+ *          the font has no glyph for are skipped, advance kept.
  *
  * Disposal: the caller owns each `letter.geometry` — push them onto
  * your own disposables list and call `.dispose()` in cleanup.
@@ -128,6 +129,12 @@ export async function extrudedWord(
   for (const char of word) {
     const glyph = font.charToGlyph(char);
     const advance = (glyph.advanceWidth ?? 0) * (fontSize / font.unitsPerEm);
+    // Index 0 is `.notdef`, whose box outline extrudes into visible tofu
+    // rather than failing the empty-shape check below.
+    if (glyph.index === 0) {
+      xOffset += advance;
+      continue;
+    }
     const path = glyph.getPath(xOffset, 0, fontSize);
     const svgPath = path.toPathData(2);
 

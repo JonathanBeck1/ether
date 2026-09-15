@@ -32,8 +32,12 @@ tile-based mobile GPUs resolve nearly for free.
 **Dither runs on every tier.**
 [`src/postfx/DitherEffect.ts`](../src/postfx/DitherEffect.ts).
 A per-pixel hash grain, merged into the same fullscreen pass as
-everything else: a few ALU ops. Without it, dark gradients band, and on
-mobile OLED the posterization reads as wrong colors. An earlier note
+everything else: a few ALU ops. It goes in through the sRGB transfer —
+encode, add, decode — at one output step peak to peak, so the amplitude
+is the same at every luminance; the identical amount added in linear light
+lands as several steps in the darks and none in the highlights. Without
+it, dark gradients band, and on mobile OLED the posterization reads as
+wrong colors. An earlier note
 called it the most expensive pass after bloom; that was measured wrong
 and retired. The 8x8 Bayer matrix in
 [`src/shaders/dither.glsl`](../src/shaders/dither.glsl) is a standalone
@@ -99,16 +103,21 @@ dependency for the same reason. `detect-gpu` is not among them: attaching
 a manager resolves the tier, so every consumer of `ether/core` needs it
 and it stays a required peer.
 
-**No CDN defaults, with one borrowed exception.**
+**No CDN defaults, with two borrowed exceptions.**
 [`src/loaders/gltf.ts`](../src/loaders/gltf.ts), [`src/text/msdf/index.ts`](../src/text/msdf/index.ts), [`src/quality/quality.ts`](../src/quality/quality.ts), [`src/dev/tweaks/tokens.ts`](../src/dev/tweaks/tokens.ts).
 Draco and KTX2 decoders are served by the site and passed as paths.
 MSDF text takes a font URL rather than falling back to a hosted one. The
 tweaks panel injects no `@font-face` unless the host hands it URLs. A
 premium site does not fetch its rendering from someone else's origin.
-The exception is detect-gpu's benchmark tables, which detect-gpu itself
-fetches from unpkg unless `configureQuality({ benchmarksURL })` names a
-copy you serve — the reference site copies them into
-`public/gpu-benchmarks/` and does exactly that.
+Two fetches still do. detect-gpu's benchmark tables, which detect-gpu
+itself pulls from unpkg unless `configureQuality({ benchmarksURL })` names
+a copy you serve — the reference site copies them into
+`public/gpu-benchmarks/` and does exactly that. And troika's
+unicode-font-resolver, which fetches fallback font data from jsDelivr for
+any character the MSDF font you named does not cover, unless
+`msdfText({ unicodeFontsURL })` points at your own copy. Both are the
+peer's own default rather than the engine's, and both have a setting that
+turns them off.
 
 **Raw TypeScript for the inner loop, built ESM for everyone else.**
 [`package.json`](../package.json), [`vite.config.ts`](../vite.config.ts), [`scripts/prepare-publish.mjs`](../scripts/prepare-publish.mjs).

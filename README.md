@@ -5,10 +5,12 @@
 
 A WebGL engine for premium Astro sites, built on three.js. It owns the layer
 a studio site needs above the renderer — one persistent `<canvas>` that
-survives client-side navigation (Astro or plain Vite), GPU-tier quality
-detection, a Lenis ↔ GSAP ScrollTrigger bridge, composable bloom / dither /
-LUT postprocessing, loaders with one progress value, extruded and MSDF
-type, and a live tweaks panel for art direction — and nothing three.js
+survives client-side navigation (Astro or plain Vite), so the renderer and
+its GL context are built once per tab and never per page; GPU-tier quality
+detection, one LOW / MID / HIGH reading of the device taken at boot; a
+Lenis ↔ GSAP ScrollTrigger bridge; composable bloom / dither / LUT
+postprocessing; loaders with one progress value; extruded and MSDF type;
+and a live tweaks panel for art direction — and nothing three.js
 already does. No renderer of its own, no asset pipeline, no physics, no
 editor: deliberate omissions, not gaps.
 
@@ -28,7 +30,8 @@ backdrop are the scene.
 ![The same mark mid-scroll: letters tumbling out of formation](https://raw.githubusercontent.com/JonathanBeck1/ether/master/docs/hero-mid.jpg)
 
 Why it is shaped this way — the persistent canvas, LDR bloom, dither on
-every tier, exit-before-swap — is written up in
+every tier, exit-before-swap (the outgoing scene's exit runs before the
+framework replaces the DOM, not after) — is written up in
 [docs/design-notes.md](https://github.com/JonathanBeck1/ether/blob/master/docs/design-notes.md).
 See also [Provenance](#provenance).
 
@@ -46,6 +49,9 @@ See also [Provenance](#provenance).
 - Optional peers, pulled in only by the modules that need them: `lenis`
   and `gsap` (`ether/scroll`), `opentype.js` (`ether/text`),
   `troika-three-text` (`ether/text/msdf`).
+- `@types/three` matching your `three`, as a dev dependency. The git /
+  `file:` install typechecks the kit's own `.ts` sources as part of your
+  project, and they import three's types.
 
 ## Install
 
@@ -53,8 +59,12 @@ Straight from git — raw `.ts`, which the rest of this README uses under
 the package name `ether`:
 
 ```bash
-npm i github:JonathanBeck1/ether three postprocessing detect-gpu
+npm i github:JonathanBeck1/ether three@0.184 postprocessing detect-gpu
 ```
+
+Pin `three`: npm otherwise resolves the newest release, which is outside
+the `^0.184` peer range, and every `npm i` after that fails with
+`ERESOLVE`.
 
 Or as a sibling folder — the fastest inner loop (Vite watches and HMRs
 kit edits like first-party code):
@@ -68,7 +78,7 @@ The npm package — built ESM + types, imported from
 produces it; the install will be:
 
 ```bash
-npm i @jonathanbeck1/ether three postprocessing detect-gpu
+npm i @jonathanbeck1/ether three@0.184 postprocessing detect-gpu
 ```
 
 ```ts
@@ -95,6 +105,14 @@ vite: {
 },
 ```
 
+Those same `?raw` imports need Vite's ambient types on your side, or `tsc`
+reports them as untyped modules. Add the directive once, in any `.d.ts`
+your `tsconfig` already includes:
+
+```ts
+/// <reference types="vite/client" />
+```
+
 Do not set `resolve.preserveSymlinks` for the `file:` layout — it pins the
 kit at its `node_modules` path, which Vite does not watch, so edits are
 served stale.
@@ -108,17 +126,17 @@ tree-shake reliably:
 |---|---|---|
 | `ether/core` | `SceneManager`, `BaseScene`, `BaseSceneOptions`, `Scene`, `attachSceneManager`, `Attachment`, `AttachOptions`, `SceneFactory`, `SceneRoutes`, `normalizeRoute` | Renderer + rAF loop + per-route scene lifecycle (preload → enter → tick → exit → dispose). Subclass `BaseScene` for your hero. `attachSceneManager` is the framework-agnostic persistent-canvas pattern — one manager per canvas for the lifetime of the tab, single-flight guarded, with a `bind` hook where a framework adapter wires its navigation events. |
 | `ether/astro` | `initSceneRouter`, `InitSceneRouterOptions` | Persistent-canvas router for Astro. Pass a routes map; it resolves the initial route from the address bar and drives scene transitions on `astro:before-swap`. The manager and GL context live for the lifetime of the tab. Register a scene for every route (`'*'` is the fallback). |
-| `ether/vanilla` | `initSceneRouter`, `VanillaRouter`, `VanillaRouterOptions` | The same pattern for plain Vite sites: `popstate` drives back/forward, `router.navigate()` drives programmatic moves, `interceptLinks` opts same-origin anchors in. Your app swaps the DOM it owns; the engine swaps scenes. |
-| `ether/quality` | `detectQuality`, `configureQuality`, `getQuality`, `QualityOptions`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, dither, smooth scroll, reduced-motion. `configureQuality` (before the first detect) points the probe at self-hosted benchmark tables and caps how long it may take. |
+| `ether/vanilla` | `initSceneRouter`, `VanillaRouter`, `VanillaRouterOptions`, `SceneFactory`, `SceneRoutes` | The same pattern for plain Vite sites: `popstate` drives back/forward, `router.navigate()` drives programmatic moves, `interceptLinks` opts same-origin anchors in. Your app swaps the DOM it owns; the engine swaps scenes. |
+| `ether/quality` | `detectQuality`, `configureQuality`, `getQuality`, `QualityOptions`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, smooth scroll, reduced-motion. `enableDither` rides in the same profile but is true on every tier — dither shares the composer's fullscreen pass and costs a few ALU ops, so there is nothing to save by dropping it. `configureQuality` (before the first detect) points the probe at self-hosted benchmark tables and caps how long it may take. |
 | `ether/postfx` | `createComposer`, `Composer`, `ComposerOptions`, `createHeroComposer`, `createNightComposer`, `createLightComposer`, `BloomComposer`, `PresetOptions`, `NightComposerOptions`, `DitherEffect`, `loadLUT` | One composer shape — render → your effects → (ACES when `hdr`) → dither, fused into a single fullscreen pass — and three tunings of it: restrained LDR bloom for a dark scene with one bright accent, hotter HDR/ACES bloom for emissive-heavy scenes, dither-only for pale grounds. `loadLUT` loads a `.cube`/`.3dl` grade for postprocessing's `LUT3DEffect`. Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
 | `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only on tiers that enable smooth scroll. |
 | `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | Type as form: opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
 | `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own font file — the URL is preflighted, so an unreachable one rejects instead of hanging. Characters your font does not cover still fall back to troika's unicode-font-resolver, whose data comes from jsDelivr: set `unicodeFontsURL` to your own copy, or keep the text inside the font's coverage. |
 | `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. Register every load with `progress.track` before awaiting the first, so the total is known up front. No asset pipeline — compress offline, load here. |
-| `ether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader plane with `uTime` + `uAspect` wired. Backdrops live here. |
+| `ether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader plane with `uTime` + `uAspect` wired. `aspect` (default 1) seeds `uAspect` for the frames before the first `resize()`, which owns it from then on — set it when the quad is built outside a live manager. Backdrops live here. |
 | `ether/interactions` | `initCardTilt` | Pointer-driven 3D card tilt with snap-to-rest idle, fine-pointer gate, and view-transition rebind. Returns its teardown — call it on unmount. |
 | `ether/shaders` | `dither` (string), `dither.glsl` (via `?raw`) | Reusable GLSL chunks — each file is also exported as a named string, so they compose into your shader sources from any bundler. |
-| `ether/dev` | `Stats`, `Tweaks`, `TweaksConfig`, `TweaksTheme`, `GroupConfig`, `ExportSection`, descriptor types | URL-gated diagnostics: a perf overlay (FPS / ms / tier / DPR / composer) and a live-parameter panel — sliders, colors, toggles, selects, intervals, vectors, monitors; undo/redo; URL + localStorage persistence; named presets; export as a paste-ready constants block. Both ship zero bytes until dynamically imported. |
+| `ether/dev` | `Stats`, `Tweaks`, `TweaksConfig`, `TweaksTheme`, `GroupConfig`, `ExportSection`, descriptor types | URL-gated diagnostics: a perf overlay (FPS / ms / tier / DPR / composer) and a live-parameter panel — sliders, colors, toggles, selects, intervals, vectors, monitors; undo/redo; URL + localStorage persistence; named presets; export as a paste-ready constants block. `exportSections` banners that block and fixes the emit order (constants matching no section trail in one unbannered block); `exportPromotionBanner` heads the constants a control flagged `needsPromotion`. Both ship zero bytes until dynamically imported. |
 
 ## Wiring
 
@@ -141,7 +159,15 @@ export function boot(canvas: HTMLCanvasElement) {
 
 ```ts
 // Plain Vite, no framework: same routes, History-API navigation.
-import { initSceneRouter } from 'ether/vanilla';
+import { initSceneRouter, type SceneRoutes } from 'ether/vanilla';
+import { HeroScene } from './scenes/HeroScene';
+import { CalmScene } from './scenes/CalmScene';
+
+const canvas = document.querySelector<HTMLCanvasElement>('#scene')!;
+const routes: SceneRoutes = {
+  '/': (renderer, quality) => new HeroScene(renderer, quality),
+  '*': (renderer, quality) => new CalmScene(renderer, quality),
+};
 
 const router = await initSceneRouter(canvas, routes, { interceptLinks: true });
 router.navigate('/work'); // pushState + scene transition
@@ -163,8 +189,12 @@ import { createHeroComposer } from 'ether/postfx';
 import { extrudedWord } from 'ether/text';
 
 export class HeroScene extends BaseScene {
+  // Stand-in. Your material is the art direction; the kit has no opinion.
+  private readonly material = new THREE.MeshStandardMaterial({ color: '#c8d0ff' });
+
   constructor(renderer: THREE.WebGLRenderer, quality: QualityProfile) {
     super(); // fov 50, near 0.1, far 100, camera at z = 4 — override via options
+    this.track(this.material);
     this.composer = createHeroComposer(renderer, this.scene, this.camera, {
       enableDither: quality.enableDither,
       multisampling: quality.msaaSamples,
@@ -174,13 +204,23 @@ export class HeroScene extends BaseScene {
   async preload() {
     const letters = await extrudedWord('HELLO', '/fonts/display.ttf', { targetCapHeight: 1 });
     for (const l of letters) {
-      const mesh = new THREE.Mesh(l.geometry, this.material);
+      const mesh = new THREE.Mesh(this.track(l.geometry), this.material);
       mesh.position.copy(l.assembledPosition);
       mesh.scale.setScalar(l.assembledScale);
       this.scene.add(mesh);
     }
   }
-  // enterTransition(), tick(time, delta), exitTransition(), dispose()
+
+  // The three abstract members. The manager awaits exitTransition but not
+  // enterTransition — kill intro timelines in dispose(), not on completion.
+  async enterTransition() {}
+  async exitTransition() {}
+
+  tick(time: number, _deltaTime: number) {
+    this.scene.rotation.y = Math.sin(time * 0.2) * 0.05;
+  }
+
+  // dispose() is inherited — it drains everything passed to this.track().
 }
 ```
 

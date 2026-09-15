@@ -58,6 +58,10 @@ export interface Attachment {
  */
 type ManagedCanvas = HTMLCanvasElement & {
   __sceneManager?: SceneManager;
+  /** Detach for the live attachment. Destroying the displaced manager is
+   *  only half a teardown — without this the previous `bind`'s unbind
+   *  never runs and its listeners accumulate across every HMR reboot. */
+  __sceneDetach?: () => void;
   /** In-flight init promise — present ONLY while an init is mid-await.
    *  Lets a second overlapping call return the same attachment instead
    *  of spawning a duplicate render loop. Cleared as soon as the init
@@ -115,6 +119,13 @@ export function attachSceneManager(
 
   const run = (async (): Promise<Attachment> => {
     // Defensive teardown — see SceneManager docs for why this matters.
+    if (tagged.__sceneDetach) {
+      try {
+        tagged.__sceneDetach();
+      } catch (err) {
+        console.warn('[ether/core] prior attachment detach threw:', err);
+      }
+    }
     if (tagged[SCENE_MANAGER_KEY]) {
       try {
         tagged[SCENE_MANAGER_KEY]!.destroy();
@@ -166,10 +177,12 @@ export function attachSceneManager(
         if (tagged[SCENE_MANAGER_KEY] === manager) {
           manager.destroy();
           delete tagged[SCENE_MANAGER_KEY];
+          delete tagged.__sceneDetach;
         }
         clearSlot();
       },
     };
+    tagged.__sceneDetach = attachment.detach;
 
     // Initial route from the address bar — deep loads on any registered
     // route mount that route's scene directly.
