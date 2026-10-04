@@ -4,9 +4,9 @@
 // GL context, History-API navigation, which clicks interceptLinks takes
 // and which it leaves to the browser, latest-wins under rapid
 // navigation, the '*' fallback, retarget, resize propagation, recovery
-// from a scene that fails to build, the bind hook, and a clean detach.
-// Reads instrumented counters the fixture exposes on `window.__fixture`
-// — never pixels.
+// from a scene that fails to build, the bind hook, a clean detach, and
+// the getDiagnostics() snapshot. Reads instrumented counters the fixture
+// exposes on `window.__fixture` — never pixels.
 import { chromium } from 'playwright';
 
 const READY_TIMEOUT_MS = 60_000;
@@ -97,6 +97,42 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       for (let i = 0; i < rafs; i++) await raf();
       return r.info.render.frame - f0;
     }, rafs);
+  // getDiagnostics(), JSON-safety checked in-page: Playwright's serializer
+  // carries NaN, Infinity and undefined across, so a node-side walk can't.
+  const unsafeReads = [];
+  let diagReads = 0;
+  const diag = async (label) => {
+    const { d, safe } = await page.evaluate(() => {
+      const d = document.getElementById('scene-canvas').__sceneManager.getDiagnostics();
+      const ok = (v) =>
+        v === null ||
+        typeof v === 'boolean' ||
+        typeof v === 'string' ||
+        (typeof v === 'number'
+          ? Number.isFinite(v)
+          : Array.isArray(v)
+            ? v.every(ok)
+            : typeof v === 'object' &&
+              Object.getPrototypeOf(v) === Object.prototype &&
+              Object.values(v).every(ok));
+      return { d, safe: ok(d) };
+    });
+    diagReads++;
+    if (!safe) unsafeReads.push(label);
+    return d;
+  };
+  const waitForDiag = async (predicate, label) => {
+    const deadline = Date.now() + READY_TIMEOUT_MS;
+    let d = await diag(label);
+    while (!predicate(d) && Date.now() < deadline) {
+      await sleep(POLL_MS);
+      d = await diag(label);
+    }
+    if (predicate(d)) return d;
+    fail(`${label} — timed out (scene: ${JSON.stringify(d.scene)})`);
+    return null;
+  };
+  const settled = (route) => (d) => d.scene.phase === 'active' && d.scene.entered && d.scene.route === route;
 
   try {
     // 1. Boot — forced quality, initial route from the address bar.
@@ -144,6 +180,51 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     );
     const drawnA = await framesOver(10);
     check(drawnA > 0, `loop: composer path issues draws (${drawnA} renders over 10 frames)`);
+
+    // Diagnostics on the composed scene: observed composer, whole-frame
+    // counts, a live loop. Bounds only, never thresholds.
+    const readyA = await waitForDiag(settled('/'), 'diagnostics: / settles active + entered');
+    if (readyA) {
+      pass('diagnostics: / settles active + entered');
+      check(
+        readyA.postFX.enabled && JSON.stringify(readyA.postFX.passes) === '["RenderPass","EffectPass"]',
+        `diagnostics: / reports the live composer (${JSON.stringify(readyA.postFX)})`,
+      );
+      check(
+        readyA.rendering.renderCalls > 1 && readyA.rendering.drawCalls > 1 && readyA.rendering.skipped === null,
+        `diagnostics: / counts the whole composed frame (${readyA.rendering.renderCalls} renders, ${readyA.rendering.drawCalls} draws, skipped ${readyA.rendering.skipped})`,
+      );
+      // Read path only: the fixture forces msaaSamples 0, the composer default.
+      check(
+        readyA.postFX.msaa === 0 && readyA.postFX.msaa === readyA.quality.msaaSamples,
+        `diagnostics: msaa read path (${readyA.postFX.msaa}, quality ${readyA.quality.msaaSamples})`,
+      );
+      const page0 = await page.evaluate(async () => {
+        const raf = () => new Promise((r) => requestAnimationFrame(r));
+        const m = document.getElementById('scene-canvas').__sceneManager;
+        const f0 = m.getDiagnostics().performance.frames;
+        for (let i = 0; i < 10; i++) await raf();
+        return {
+          moved: m.getDiagnostics().performance.frames - f0,
+          autoReset: m.renderer.info.autoReset,
+          devicePixelRatio: window.devicePixelRatio,
+        };
+      });
+      check(page0.moved > 0, `diagnostics: frames advance with the loop (+${page0.moved} over 10 frames)`);
+      check(page0.autoReset === true, `diagnostics: renderer.info.autoReset restored after frames (${page0.autoReset})`);
+      await sleep(600);
+      const live = await diag('liveness');
+      const { fps, cpuMs } = live.performance;
+      check(
+        Number.isFinite(fps) && fps > 0 && Number.isFinite(cpuMs) && cpuMs >= 0,
+        `diagnostics: fps and cpuMs read finite (fps ${fps}, cpuMs ${cpuMs})`,
+      );
+      const expectedDpr = Math.min(page0.devicePixelRatio, live.quality.dprCap);
+      check(
+        live.rendering.dpr === expectedDpr,
+        `diagnostics: dpr is the applied ratio (${live.rendering.dpr} vs ${expectedDpr})`,
+      );
+    }
 
     // 3. One manager per canvas across boots: a second boot() tears the
     //    first down and takes its place, leaving exactly one alive.
@@ -194,6 +275,17 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       check(onB.canvases === 1, `nav: single canvas (${onB.canvases})`);
       const drawnB = await framesOver(10);
       check(drawnB > 0, `nav: direct render path issues draws (${drawnB} renders over 10 frames)`);
+      const readyB = await waitForDiag(settled('/b'), 'diagnostics: /b settles active + entered');
+      if (readyB) {
+        check(
+          !readyB.postFX.enabled && readyB.postFX.msaa === null && readyB.postFX.passes.length === 0,
+          `diagnostics: /b reports no composer (${JSON.stringify(readyB.postFX)})`,
+        );
+        check(
+          readyB.rendering.renderCalls === 1 && readyB.rendering.drawCalls === 1,
+          `diagnostics: /b direct render is one call, one draw (${readyB.rendering.renderCalls}/${readyB.rendering.drawCalls})`,
+        );
+      }
       const ticksDead = await ticksOver(navBase - 1, 20);
       check(ticksDead === 0, `nav: disposed scene A is inert (${ticksDead} ticks over 20 frames)`);
     }
@@ -222,6 +314,11 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     const nope = await waitFor((s) => s.route === '/nope' && s.path === '/nope', 'nav: /nope');
     if (nope) {
       check(nope.active === 'B', `fallback: unregistered /nope mounts the '*' scene (${nope.active})`);
+      const d = await diag('fallback');
+      check(
+        d.scene.route === '/nope' && d.scene.fallback === true,
+        `diagnostics: '*' match reports fallback on the real path (${d.scene.route}, fallback ${d.scene.fallback})`,
+      );
     }
 
     // 7. Resize propagates to the active scene after the debounce.
@@ -495,6 +592,7 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     //     transition started on. The fixture holds the outgoing scene
     //     inside exitTransition so the two overlap deterministically.
     const outgoing = forward ? forward.scenes.length - 1 : 0;
+    const preExit = await diag('pre-exit');
     await page.evaluate(() => {
       window.__fixture.hold('exit');
       window.__fixture.router.navigate('/b');
@@ -504,6 +602,11 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       'transition: outgoing scene held in exit',
     );
     if (exiting) {
+      const d = await diag('exit held');
+      check(
+        d.scene.phase === 'exiting' && d.scene.target === '/b' && d.scene.id === preExit.scene.id,
+        `diagnostics: held exit reads exiting toward /b on the same scene id (${d.scene.phase}, target ${d.scene.target}, id ${d.scene.id} vs ${preExit.scene.id})`,
+      );
       await page.setViewportSize({ width: 1000, height: 500 });
       await waitFor((s) => s.scenes[outgoing].resized >= 2, 'transition: resize lands mid-exit');
     }
@@ -520,6 +623,7 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     }
     // Preload finishes before the scene goes live: nothing half-mounted
     // ticks, and the loop is still running when it does.
+    const prePreload = await diag('pre-preload');
     await page.evaluate(() => {
       window.__fixture.hold('preload');
       window.__fixture.router.navigate('/');
@@ -529,6 +633,11 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       'transition: incoming scene held in preload',
     );
     if (preloading) {
+      const d = await diag('preload held');
+      check(
+        d.scene.phase === 'loading' && d.scene.route === '/b' && d.scene.target === '/' && d.scene.id === null,
+        `diagnostics: held preload reads loading from /b toward / with nothing live (${d.scene.phase}, route ${d.scene.route}, target ${d.scene.target}, id ${d.scene.id})`,
+      );
       const ticksHeld = await ticksOver(preloading.scenes.length - 1, 20);
       check(
         ticksHeld === 0 && preloading.scenes.at(-1).entered === 0,
@@ -546,11 +655,17 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
         ticksPreloaded > 0 && preloaded.scenes.at(-1).entered === 1,
         `transition: it enters and ticks once preload resolves (${ticksPreloaded} ticks over 20 frames)`,
       );
+      const d = await diag('preloaded');
+      check(
+        d.scene.phase === 'active' && d.scene.route === '/' && d.scene.id === prePreload.scene.id + 1,
+        `diagnostics: released preload goes active on / with a new scene id (${d.scene.phase}, id ${d.scene.id} vs ${prePreload.scene.id})`,
+      );
     }
 
     // 17. A scene factory that throws is surfaced, not swallowed, and
     //     leaves the manager able to take the next navigation.
     const errorsBefore = consoleErrors.length;
+    const preBoom = await diag('pre-boom');
     await page.evaluate(() => window.__fixture.router.navigate('/boom'));
     const errorDeadline = Date.now() + 5_000;
     while (consoleErrors.length === errorsBefore && Date.now() < errorDeadline) await sleep(POLL_MS);
@@ -561,6 +676,11 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       `failure: a throwing factory surfaces once through console.error (${surfaced.length} logged)`,
     );
     const threw = await state();
+    const boomed = await diag('boom');
+    check(
+      boomed.scene.failures === preBoom.scene.failures + 1 && /^\/boom: /.test(boomed.scene.lastError ?? ''),
+      `diagnostics: the throwing hop is counted (failures ${preBoom.scene.failures} -> ${boomed.scene.failures}, lastError ${boomed.scene.lastError})`,
+    );
     check(
       threw.active === null && threw.scenes.at(-1).disposed === 1,
       `failure: the outgoing scene still exited + disposed, nothing half-mounted (active ${threw.active})`,
@@ -584,9 +704,15 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     await page.evaluate(() => window.__fixture.router.navigate('/c1'));
     const c1 = await waitFor((s) => s.active === 'C' && s.route === '/c1', 'retarget: /c1 mounted');
     if (c1) {
+      const onC1 = await diag('c1');
       await page.evaluate(() => window.__fixture.router.navigate('/c2'));
       const c2 = await waitFor((s) => s.route === '/c2', 'retarget: /c2');
       if (c2) {
+        const onC2 = await diag('c2');
+        check(
+          onC2.scene.route === '/c2' && onC2.scene.id === onC1.scene.id,
+          `diagnostics: retarget keeps the scene id (${onC1.scene.id} -> ${onC2.scene.id}, route ${onC2.scene.route})`,
+        );
         const live = c2.scenes.at(-1);
         check(
           c2.scenes.length === c1.scenes.length &&
@@ -630,7 +756,44 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       `loaders: the render loop survives a failed load (${ticksAfterFailure} ticks over 20 frames)`,
     );
 
-    // 21. Console policy.
+    // 21. Renderer memory is flat across scene cycles: every visit to a
+    //     route reads what its first visit read.
+    const cycles = await page.evaluate(async () => {
+      const raf = () => new Promise((r) => requestAnimationFrame(r));
+      const { router } = window.__fixture;
+      const m = document.getElementById('scene-canvas').__sceneManager;
+      const visit = async (route) => {
+        await router.navigate(route);
+        for (let i = 0; i < 600; i++) {
+          const d = m.getDiagnostics();
+          if (d.scene.phase === 'active' && d.scene.entered && d.scene.route === route) break;
+          await raf();
+        }
+        for (let i = 0; i < 5; i++) await raf();
+        const { route: at, phase } = m.getDiagnostics().scene;
+        const { geometries, textures, programs } = m.getDiagnostics().rendering;
+        return { route, at, phase, memory: [geometries, textures, programs] };
+      };
+      const visits = [];
+      for (let i = 0; i < 3; i++) visits.push(await visit('/'), await visit('/b'));
+      visits.push(await visit('/'));
+      return visits;
+    });
+    const firstVisit = {};
+    const drift = cycles.filter((v) => {
+      firstVisit[v.route] ??= JSON.stringify(v.memory);
+      return v.at !== v.route || v.phase !== 'active' || JSON.stringify(v.memory) !== firstVisit[v.route];
+    });
+    check(
+      drift.length === 0,
+      `diagnostics: memory flat across 3 cycles (/ ${firstVisit['/']}, /b ${firstVisit['/b']}${drift.length ? `; drift ${JSON.stringify(drift)}` : ''})`,
+    );
+    check(
+      diagReads > 0 && unsafeReads.length === 0,
+      `diagnostics: ${diagReads} snapshots JSON-safe${unsafeReads.length ? `; unsafe: ${unsafeReads.join(', ')}` : ''}`,
+    );
+
+    // 22. Console policy.
     const unexpectedWarnings = consoleWarnings.filter(
       (w) => !WARNING_ALLOWLIST.some((re) => re.test(w)),
     );

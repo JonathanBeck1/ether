@@ -10,9 +10,12 @@
 // pattern — one manager per canvas for the lifetime of the tab. The
 // framework adapters (`ether/astro`, `ether/vanilla`) are thin `bind`
 // callbacks over it; write your own the same way.
+//
+// `SceneManager.getDiagnostics()` returns a JSON-safe snapshot of what
+// the runtime is doing.
 export { SceneManager } from './SceneManager';
 export { BaseScene, type BaseSceneOptions } from './BaseScene';
-export type { Scene } from './types';
+export type { Scene, RuntimeDiagnostics } from './types';
 export {
   attachSceneManager,
   normalizeRoute,

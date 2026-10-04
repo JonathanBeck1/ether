@@ -2,7 +2,7 @@
 // sub-path, every public type — under skipLibCheck: false, so a broken
 // emitted .d.ts fails here rather than in a consumer's project.
 // `npm run test:dist` (after `npm run build`).
-import type { Attachment, Scene, SceneManager, SceneRoutes } from '@jonathanbeck1/ether/core';
+import type { Attachment, RuntimeDiagnostics, Scene, SceneManager, SceneRoutes } from '@jonathanbeck1/ether/core';
 import type { InitSceneRouterOptions } from '@jonathanbeck1/ether/astro';
 import type { VanillaRouter } from '@jonathanbeck1/ether/vanilla';
 import type { QualityProfile, QualityTier } from '@jonathanbeck1/ether/quality';
@@ -30,6 +30,7 @@ class Probe extends BaseScene {
 export async function shape(canvas: HTMLCanvasElement, routes: SceneRoutes, quality: QualityProfile) {
   const attachment: Attachment = await attachSceneManager(canvas, routes, { quality });
   const manager: SceneManager = attachment.manager;
+  const diagnostics: RuntimeDiagnostics = manager.getDiagnostics();
   const scene: Scene = new Probe();
   const route: string = normalizeRoute('/work/');
   const composer: Composer = createComposer(manager.renderer, scene.scene, scene.camera, {
@@ -44,7 +45,7 @@ export async function shape(canvas: HTMLCanvasElement, routes: SceneRoutes, qual
   const tier: QualityTier = quality.tier;
   initCardTilt();
   const glsl: string = dither;
-  return { composer, bloom, gltf, text, tier, glsl };
+  return { composer, bloom, gltf, text, tier, glsl, diagnostics };
 }
 
 export type Surface = {

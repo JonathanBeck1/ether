@@ -1,18 +1,22 @@
 import * as THREE from 'three';
-import type { Scene } from './types';
+import type { RuntimeDiagnostics, Scene } from './types';
 import type { QualityProfile } from '../quality/quality';
 
 type SceneFactory = (renderer: THREE.WebGLRenderer, route?: string) => Scene;
+
+const WINDOW_MS = 500;
+// A tick this late means a parked rAF or a main-thread stall; neither is a frame rate.
+const GAP_S = 1;
 
 /**
  * Owns the renderer, the render loop, and per-route Scene instances.
  *
  * IMPORTANT: destroy() must FULLY tear this down — cancel rAF, remove
- * listeners, dispose the active scene, dispose the renderer, and force the
- * WebGL context to release. If anything is left dangling, a re-init (e.g.
- * Astro client-side navigation that re-runs the inline script) will end up
- * with TWO render loops drawing into the same persistent canvas, which
- * presents as ghost-doubled letters and frame-to-frame jitter.
+ * listeners, dispose the active scene and dispose the renderer. If anything
+ * is left dangling, a re-init (e.g. Astro client-side navigation that re-runs
+ * the inline script) will end up with TWO render loops drawing into the same
+ * persistent canvas, which presents as ghost-doubled letters and
+ * frame-to-frame jitter.
  */
 export class SceneManager {
   readonly renderer: THREE.WebGLRenderer;
@@ -34,6 +38,21 @@ export class SceneManager {
   /** Set by destroy(); cancels any in-flight transition so a disposed
    *  manager can't construct a zombie scene on a dead render loop. */
   private destroyed = false;
+  private hopTarget: string | null = null;
+  private sceneSerial = 0;
+  private entered = false;
+  private failures = 0;
+  private lastError: string | null = null;
+  private frames = 0;
+  private windowStart = 0;
+  private windowFrames = 0;
+  private windowCpu = 0;
+  private fps: number | null = null;
+  private cpuMs: number | null = null;
+  private skipped: RuntimeDiagnostics['rendering']['skipped'] = 'no-scene';
+  private renderCalls = 0;
+  private drawCalls = 0;
+  private triangles = 0;
   private readonly tickBound: (now: number) => void;
   private readonly handleResizeBound: () => void;
   private readonly handleContextLostBound: (e: Event) => void;
@@ -110,9 +129,53 @@ export class SceneManager {
     this.scenes.set(routeName, factory);
   }
 
-  /** The scene currently rendering, or null mid-transition / before first activation. */
+  /** The scene currently ticking (the outgoing one while it exits), or
+   *  null while the next one loads and before the first activation. */
   get activeScene(): Scene | null {
     return this._activeScene;
+  }
+
+  /** JSON-safe snapshot of what the runtime is doing, for tests, CI and
+   *  devtools. Allocates; call on demand. */
+  getDiagnostics(): RuntimeDiagnostics {
+    const live = this._activeScene;
+    const route = this.currentRoute;
+    const composer = live?.composer;
+    const info = this.renderer.info;
+    return {
+      scene: {
+        phase: this.destroyed ? 'destroyed'
+          : this.transitioning ? (live ? 'exiting' : 'loading')
+          : live ? 'active' : 'empty',
+        route,
+        fallback: route !== null && !this.scenes.has(route),
+        target: this.hopTarget,
+        id: live ? this.sceneSerial : null,
+        entered: live !== null && this.entered,
+        failures: this.failures,
+        lastError: this.lastError,
+      },
+      performance: { frames: this.frames, fps: this.fps, cpuMs: this.cpuMs },
+      rendering: {
+        skipped: this.skipped,
+        renderCalls: this.renderCalls,
+        drawCalls: this.drawCalls,
+        triangles: this.triangles,
+        geometries: info.memory.geometries,
+        textures: info.memory.textures,
+        programs: info.programs!.length,
+        dpr: this.renderer.getPixelRatio(),
+        contextLost: this.contextLost,
+      },
+      postFX: composer
+        ? {
+          enabled: true,
+          msaa: composer.multisampling,
+          passes: composer.passes.filter((p) => p.enabled).map((p) => p.name),
+        }
+        : { enabled: false, msaa: null, passes: [] },
+      quality: { ...this.quality },
+    };
   }
 
   /**
@@ -125,11 +188,11 @@ export class SceneManager {
    * router forces a real exit→enter so the fresh scene re-couples to
    * the fresh DOM.
    *
-   * Hop order: exit old → dispose old → construct + preload next →
+   * Hop order: exit old → dispose old → construct + size next → preload →
    * activate → enter. The exit runs FIRST so scene resource lifetimes
-   * (Lenis bridge, ScrollTriggers, pointer listeners — created in scene
-   * constructors) are strictly disjoint. Enter is NOT awaited by the
-   * queue: a navigation during a long intro interrupts it via dispose
+   * (Lenis bridge, ScrollTriggers, pointer listeners) are strictly
+   * disjoint. Enter is NOT awaited by the queue: a navigation during a
+   * long intro interrupts it via dispose
    * (scenes kill their intro timelines there).
    */
   async transitionTo(
@@ -150,14 +213,18 @@ export class SceneManager {
         const target = this.pendingRoute;
         this.pendingRoute = null;
         this.forceNext = false;
+        this.hopTarget = target;
         try {
           await this.runTransition(target);
         } catch (err) {
+          this.failures++;
+          this.lastError = `${target}: ${err instanceof Error ? err.message : String(err)}`;
           console.error(`[SceneManager] transition failed for ${target}:`, err);
         }
       }
     } finally {
       this.transitioning = false;
+      this.hopTarget = null;
     }
   }
 
@@ -216,6 +283,8 @@ export class SceneManager {
       if (next.preload) await next.preload();
       if (this.destroyed) { next.dispose(); return; }
       this._activeScene = next;
+      this.sceneSerial++;
+      this.entered = false;
       this.currentRoute = routeName;
       // A resize during preload() had no active scene to land on — the
       // handler resized the renderer and nothing else, and its
@@ -225,7 +294,11 @@ export class SceneManager {
       if (liveW > 0 && liveH > 0 && (liveW !== w || liveH !== h)) {
         this.sizeScene(next, liveW, liveH);
       }
-      next.enterTransition().catch((err) => {
+      const settled = () => { if (this._activeScene === next) this.entered = true; };
+      next.enterTransition().then(settled, (err) => {
+        settled();
+        this.failures++;
+        this.lastError = `${routeName}: ${err instanceof Error ? err.message : String(err)}`;
         console.error(
           `[SceneManager] enterTransition failed for ${routeName}:`,
           err,
@@ -258,13 +331,26 @@ export class SceneManager {
     if (this.running) return;
     this.running = true;
     this.lastTime = performance.now();
+    this.windowStart = this.lastTime;
     this.rafHandle = requestAnimationFrame(this.tickBound);
   }
 
   private tick(now: number): void {
     if (!this.running) return;
+    const workStart = performance.now();
     const deltaTime = (now - this.lastTime) / 1000;
     this.lastTime = now;
+    // Whole-frame totals: a composer calls render() once per pass and
+    // autoReset would keep only the last. A caller's own autoReset = false
+    // is left accumulating.
+    const info = this.renderer.info;
+    const autoReset = info.autoReset;
+    if (autoReset) info.reset();
+    info.autoReset = false;
+    const frame0 = info.render.frame;
+    const calls0 = info.render.calls;
+    const triangles0 = info.render.triangles;
+    let skipped: RuntimeDiagnostics['rendering']['skipped'] = 'no-scene';
 
     if (this._activeScene) {
       // Scene tick runs even while the context is lost: it's CPU-side math
@@ -278,11 +364,14 @@ export class SceneManager {
       // (e.g. /web parks it) while the OUTGOING scene's exit fade is
       // still rendering — drawing into the zero-size framebuffer spams
       // GL_INVALID_FRAMEBUFFER_OPERATION every frame of the fade.
-      if (
-        !this.contextLost &&
-        this._activeScene.renders !== false &&
-        this.renderer.domElement.width > 0
-      ) {
+      skipped = this.contextLost
+        ? 'context-lost'
+        : this._activeScene.renders === false
+          ? 'renders-false'
+          : this.renderer.domElement.width === 0
+            ? 'zero-size'
+            : null;
+      if (skipped === null) {
         if (this._activeScene.composer) {
           this._activeScene.composer.render(deltaTime);
         } else {
@@ -290,7 +379,34 @@ export class SceneManager {
         }
       }
     }
+    info.autoReset = autoReset;
+    this.skipped = skipped;
+    this.renderCalls = info.render.frame - frame0;
+    this.drawCalls = info.render.calls - calls0;
+    this.triangles = info.render.triangles - triangles0;
+    this.sampleFrame(now, deltaTime, performance.now() - workStart);
     this.rafHandle = requestAnimationFrame(this.tickBound);
+  }
+
+  private sampleFrame(now: number, deltaTime: number, cpu: number): void {
+    this.frames++;
+    if (deltaTime > GAP_S) {
+      this.windowStart = now;
+      this.windowFrames = 0;
+      this.windowCpu = 0;
+      this.fps = null;
+      this.cpuMs = null;
+      return;
+    }
+    this.windowFrames++;
+    this.windowCpu += cpu;
+    const elapsed = now - this.windowStart;
+    if (elapsed < WINDOW_MS) return;
+    this.fps = (this.windowFrames * 1000) / elapsed;
+    this.cpuMs = this.windowCpu / this.windowFrames;
+    this.windowStart = now;
+    this.windowFrames = 0;
+    this.windowCpu = 0;
   }
 
   /**

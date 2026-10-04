@@ -20,9 +20,10 @@ export interface InitSceneRouterOptions {
  * `SceneManager` on it for the lifetime of the tab, and this adapter
  * turns `astro:before-swap` into scene transitions.
  *
- * Browsers without View Transitions get Astro's full-page-load fallback:
- * fresh document, fresh boot, fresh manager — degraded but correct, no
- * special handling.
+ * Browsers without View Transitions still navigate client-side under
+ * `<ClientRouter />`'s default `fallback="animate"`, so the canvas persists
+ * the same way. Only `fallback="none"` turns navigations into full page
+ * loads, each booting a fresh manager — degraded but correct.
  */
 export async function initSceneRouter(
   canvas: HTMLCanvasElement,

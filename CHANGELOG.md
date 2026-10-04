@@ -6,11 +6,32 @@ Notable changes to ether. The format follows
 
 ## [Unreleased]
 
+`SceneManager` now reports what the runtime is actually doing through
+`getDiagnostics()`: a pull-only, JSON-safe snapshot of the live scene and
+hop phase, the render loop, whole-frame draw counts and the composer
+actually running, kept separate from what the quality profile asked for.
+
 ### Added
 
+- `ether/core`: `SceneManager.getDiagnostics()` returns a JSON-safe
+  `RuntimeDiagnostics` snapshot (scene phase, route, fallback, in-flight
+  target, scene id, enter state, hop failures; loop frames, fps and CPU
+  time per tick; whole-frame render calls, draw calls and triangles with
+  the skip reason; renderer memory counts, applied DPR and context
+  state; the composer actually running; quality intent) for tests, CI
+  and devtools.
 - `ether/text/msdf`: `msdfText({ timeoutMs })` bounds how long the call
   waits for troika's glyph atlas once the font preflight passes. Default
   10000; `Infinity` waits indefinitely.
+
+### Changed
+
+- `ether/core`: after each manager frame
+  `renderer.info.render.calls`/`triangles` hold the whole frame (every
+  composer pass and shadow-map draws) instead of the last `render()`
+  call's, which on a composed scene read 1. `info.render.frame` and
+  `info.memory` are unaffected, and a renderer whose `info.autoReset`
+  you set to false keeps accumulating.
 
 ### Fixed
 
