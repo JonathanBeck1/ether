@@ -41,7 +41,9 @@ See also [Provenance](#provenance).
   with any of them; the git / `file:` install ships raw `.ts` and needs a
   **Vite-based** one (Astro, or Vite directly) for its `?raw` GLSL
   imports. There is no plain-Node entry point — the engine lives in a
-  page.
+  page — but importing any entry on the server (Astro frontmatter, a
+  SvelteKit component) is safe: the engine does nothing until a page
+  attaches.
 - `three ^0.184`, `postprocessing ^6.39`, `detect-gpu ^5.0` (peer
   dependencies). `ether/core` resolves the quality tier on attach, so
   `detect-gpu` is required even by consumers that never import
@@ -128,10 +130,10 @@ tree-shake reliably:
 | `ether/astro` | `initSceneRouter`, `InitSceneRouterOptions` | Persistent-canvas router for Astro. Pass a routes map; it resolves the initial route from the address bar and drives scene transitions on `astro:before-swap`. The manager and GL context live for the lifetime of the tab. Register a scene for every route (`'*'` is the fallback). |
 | `ether/vanilla` | `initSceneRouter`, `VanillaRouter`, `VanillaRouterOptions`, `SceneFactory`, `SceneRoutes` | The same pattern for plain Vite sites: `popstate` drives back/forward, `router.navigate()` drives programmatic moves, `interceptLinks` opts same-origin anchors in. Your app swaps the DOM it owns; the engine swaps scenes. |
 | `ether/quality` | `detectQuality`, `configureQuality`, `getQuality`, `QualityOptions`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, smooth scroll, reduced-motion. `enableDither` rides in the same profile but is true on every tier — dither shares the composer's fullscreen pass and costs a few ALU ops, so there is nothing to save by dropping it. `configureQuality` (before the first detect) points the probe at self-hosted benchmark tables and caps how long it may take. |
-| `ether/postfx` | `createComposer`, `Composer`, `ComposerOptions`, `createHeroComposer`, `createNightComposer`, `createLightComposer`, `BloomComposer`, `PresetOptions`, `NightComposerOptions`, `DitherEffect`, `loadLUT` | One composer shape — render → your effects → (ACES when `hdr`) → dither, fused into a single fullscreen pass — and three tunings of it: restrained LDR bloom for a dark scene with one bright accent, hotter HDR/ACES bloom for emissive-heavy scenes, dither-only for pale grounds. `loadLUT` loads a `.cube`/`.3dl` grade for postprocessing's `LUT3DEffect`. Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
+| `ether/postfx` | `createComposer`, `Composer`, `ComposerOptions`, `createHeroComposer`, `createNightComposer`, `createLightComposer`, `BloomComposer`, `PresetOptions`, `NightComposerOptions`, `DitherEffect`, `loadLUT` | One composer shape — render → your effects → (ACES when `hdr`) → dither, fused into a single fullscreen pass — and three tunings of it: restrained LDR bloom for a dark scene with one bright accent, hotter HDR/ACES bloom for emissive-heavy scenes, dither-only for pale grounds. `loadLUT` loads a `.cube`/`.3dl` grade for postprocessing's `LUT3DEffect`, and rejects on an HTTP error or a file that is not a LUT (an SPA fallback page, say). Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
 | `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only on tiers that enable smooth scroll. |
 | `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | Type as form: opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
-| `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own font file — the URL is preflighted, so an unreachable one rejects instead of hanging. Characters your font does not cover still fall back to troika's unicode-font-resolver, whose data comes from jsDelivr: set `unicodeFontsURL` to your own copy, or keep the text inside the font's coverage. |
+| `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own `.ttf`, `.otf` or `.woff` — the URL is preflighted and its first bytes checked, so an unreachable URL, a woff2 (troika cannot parse one) or an HTML page served in its place rejects instead of hanging. Characters your font does not cover still fall back to troika's unicode-font-resolver, whose data comes from jsDelivr: set `unicodeFontsURL` to your own copy, or keep the text inside the font's coverage. If the atlas is not ready within `timeoutMs` (default 10000), most often because that fallback fetch is blocked, the call rejects naming the font. |
 | `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. Register every load with `progress.track` before awaiting the first, so the total is known up front. No asset pipeline — compress offline, load here. |
 | `ether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader plane with `uTime` + `uAspect` wired. `aspect` (default 1) seeds `uAspect` for the frames before the first `resize()`, which owns it from then on — set it when the quad is built outside a live manager. Backdrops live here. |
 | `ether/interactions` | `initCardTilt` | Pointer-driven 3D card tilt with snap-to-rest idle, fine-pointer gate, and view-transition rebind. Returns its teardown — call it on unmount. |
@@ -282,7 +284,7 @@ npm run typecheck      # tsc over src + tests
 npm test               # vitest over the pure modules
 npm run test:e2e       # Playwright over a plain-Vite fixture: the persistent-canvas guarantees
 npm run build          # dist/: Vite ESM per module + tsc declarations + the npm package.json
-npm run test:dist      # consume the built .d.ts under skipLibCheck: false; npm pack --dry-run
+npm run test:dist      # consume the built .d.ts under skipLibCheck: false; import every entry in plain Node; npm pack --dry-run
 npm run test:e2e:dist  # the e2e suite again, fixture aliased to dist/
 ```
 
@@ -292,9 +294,10 @@ account, after the build and both dist checks are green.
 The e2e suite (`tests/e2e`) is the engine's contract in executable form:
 one manager per canvas across boots, one render loop, scene swaps that
 dispose the outgoing scene and reuse the GL context, History-API
-navigation, the `'*'` fallback, resize propagation, and a clean detach.
-It runs on every CI push, against the sources and again against the
-built package.
+navigation, the `'*'` fallback, resize propagation, a clean detach, and
+an engine that keeps rendering through a `beforeunload` the page
+outlives (a `mailto:` link, a cancelled leave prompt). It runs on every
+CI push, against the sources and again against the built package.
 
 ## Provenance
 

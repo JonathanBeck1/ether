@@ -27,7 +27,9 @@
  * vetted benchmark per GPU model + a fallback fingerprint.
  */
 
-import { getGPUTier, type TierResult } from 'detect-gpu';
+// Not a named import: detect-gpu's Node entry is UMD with none, so SSR would throw.
+import * as detectGPU from 'detect-gpu';
+import type { TierResult } from 'detect-gpu';
 
 export type QualityTier = 'LOW' | 'MID' | 'HIGH';
 
@@ -116,7 +118,7 @@ async function resolveProfile(): Promise<QualityProfile> {
     // timeout of its own, and boot awaits this before the renderer exists.
     const gpu = await Promise.race([
       // glContext: undefined → detect-gpu creates its own probe context.
-      getGPUTier({ benchmarksURL: options.benchmarksURL }),
+      detectGPU.getGPUTier({ benchmarksURL: options.benchmarksURL }),
       new Promise<TierResult>((resolve) => {
         timer = setTimeout(() => {
           console.warn(`[quality] detect-gpu probe exceeded ${options.timeoutMs}ms, using its fallback tier`);

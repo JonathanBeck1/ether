@@ -5,9 +5,10 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import fontUrl from 'three/examples/fonts/ttf/kenpixel.ttf?url';
 import { attachSceneManager, BaseScene } from 'ether/core';
+import { Tweaks } from 'ether/dev';
 import { initCardTilt } from 'ether/interactions';
 import { createProgress, loadGLTF, loadTexture } from 'ether/loaders';
-import { createHeroComposer } from 'ether/postfx';
+import { createHeroComposer, loadLUT } from 'ether/postfx';
 import { ShaderQuad } from 'ether/primitives';
 import type { QualityProfile } from 'ether/quality';
 import { msdfText } from 'ether/text/msdf';
@@ -241,17 +242,35 @@ async function attachProbe() {
   };
 }
 
-// An unreachable font must reject rather than hang: troika's loader only
-// console.errors a failed fetch and never calls back.
-async function missingFontProbe(font: string) {
+// A font troika cannot use must reject rather than hang: its loader only
+// console.errors a failed fetch or parse and never calls back.
+async function missingFontProbe(font: string, text = 'ETHER', timeoutMs?: number) {
   const started = performance.now();
   try {
-    await msdfText({ text: 'ETHER', font });
+    await msdfText({ text, font, timeoutMs });
     return { rejected: false, message: '', ms: performance.now() - started };
   } catch (error) {
     return {
       rejected: true,
       message: (error as Error).message,
+      ms: performance.now() - started,
+    };
+  }
+}
+
+// loadLUT has to settle on every response, good or bad.
+async function lutProbe(url: string) {
+  const started = performance.now();
+  try {
+    const lut = await loadLUT(url);
+    const size = lut.image.width;
+    lut.dispose();
+    return { rejected: false, message: '', size, ms: performance.now() - started };
+  } catch (error) {
+    return {
+      rejected: true,
+      message: (error as Error).message,
+      size: 0,
       ms: performance.now() - started,
     };
   }
@@ -300,6 +319,37 @@ async function textProbe() {
   return result;
 }
 
+// A Tweaks panel with one closed color row, for the keyboard suite. Unmount
+// clears its storage so no other suite starts with a panel or saved values.
+const TWEAKS_KEY = 'fixture:tweaks';
+const TWEAKS_COLOR = '#6e9fff';
+const tweaksState: { panel: Tweaks | null; color: string } = { panel: null, color: TWEAKS_COLOR };
+
+function tweaksMount() {
+  tweaksState.color = TWEAKS_COLOR;
+  const panel = new Tweaks({ storageKey: TWEAKS_KEY });
+  panel.group('Look', { accent: TWEAKS_COLOR }).addColor({
+    path: 'rim',
+    get: () => tweaksState.color,
+    set: (v) => {
+      tweaksState.color = v;
+    },
+    default: TWEAKS_COLOR,
+    export: null,
+  });
+  tweaksState.panel = panel.mount();
+}
+
+function tweaksRead() {
+  return { color: tweaksState.color, diff: tweaksState.panel?.store.diff() ?? null };
+}
+
+function tweaksUnmount() {
+  tweaksState.panel?.unmount();
+  tweaksState.panel = null;
+  for (const suffix of ['', ':panel', ':presets']) localStorage.removeItem(TWEAKS_KEY + suffix);
+}
+
 declare const __ETHER_BUILD__: 'src' | 'dist';
 
 declare global {
@@ -319,7 +369,12 @@ declare global {
       attachProbe: typeof attachProbe;
       textProbe: typeof textProbe;
       missingFontProbe: typeof missingFontProbe;
+      lutProbe: typeof lutProbe;
       tiltProbe: typeof tiltProbe;
+      fontUrl: string;
+      tweaksMount: typeof tweaksMount;
+      tweaksRead: typeof tweaksRead;
+      tweaksUnmount: typeof tweaksUnmount;
     };
   }
 }
@@ -377,7 +432,12 @@ window.__fixture = {
   attachProbe,
   textProbe,
   missingFontProbe,
+  lutProbe,
   tiltProbe,
+  fontUrl,
+  tweaksMount,
+  tweaksRead,
+  tweaksUnmount,
 };
 // A refused context (?failinit) rejects here by design; the suite reboots.
 // Every other boot failure has to reach the page, or the suites assert

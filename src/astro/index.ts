@@ -6,8 +6,8 @@
 // => scene, ... }); the router resolves the initial route from the
 // address bar, and `astro:before-swap` drives scene transitions on
 // client-side navigation — the manager and GL context survive every
-// swap. Defensive teardown handles HMR/double-boot; real cleanup only
-// on `beforeunload`.
+// swap. Defensive teardown handles HMR/double-boot; a real unload frees
+// the renderer with the document.
 export {
   initSceneRouter,
   type SceneFactory,

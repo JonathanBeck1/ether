@@ -110,7 +110,8 @@ describe('detectQuality fallbacks', () => {
     expect(q.rawScore).toBe(0);
   });
 
-  it('resolves with no window at all, so an SSR import cannot crash a build', async () => {
+  // Server import safety needs the real detect-gpu: scripts/ssr-smoke.mjs covers it.
+  it('resolves with no window at all instead of reading matchMedia', async () => {
     gpu.tier = 3;
     const q = await (await load()).detectQuality();
     expect(q.tier).toBe('HIGH');

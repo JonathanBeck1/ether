@@ -13,6 +13,10 @@ which is why attaching tears down any prior manager first and why boots
 are single-flight: quality detection is async, so two overlapping boot
 calls would both pass the teardown check. The manager is tagged on the
 canvas element rather than module state so it survives HMR module churn.
+Nothing tears it down on the way out: a real unload frees the renderer
+and GL context with the document, and `beforeunload` also fires when the
+page stays (a `mailto:` link, a download, a cancelled leave prompt), so
+a teardown there would leave a live page with a dead engine.
 
 **Quality is decided before the renderer exists.**
 [`src/quality/quality.ts`](../src/quality/quality.ts).
@@ -117,7 +121,8 @@ unicode-font-resolver, which fetches fallback font data from jsDelivr for
 any character the MSDF font you named does not cover, unless
 `msdfText({ unicodeFontsURL })` points at your own copy. Both are the
 peer's own default rather than the engine's, and both have a setting that
-turns them off.
+turns them off. troika never reports a failed fallback fetch, so
+`msdfText` rejects after `timeoutMs` rather than leave a preload pending.
 
 **Raw TypeScript for the inner loop, built ESM for everyone else.**
 [`package.json`](../package.json), [`vite.config.ts`](../vite.config.ts), [`scripts/prepare-publish.mjs`](../scripts/prepare-publish.mjs).

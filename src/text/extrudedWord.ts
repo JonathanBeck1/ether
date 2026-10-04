@@ -141,7 +141,9 @@ export async function extrudedWord(
     const svgString = `<svg xmlns="http://www.w3.org/2000/svg"><path d="${svgPath}" fill="black"/></svg>`;
     const svgData = loader.parse(svgString);
     const shapes: THREE.Shape[] = [];
-    for (const sp of svgData.paths) shapes.push(...sp.toShapes(true));
+    // Holes by nesting, not absolute winding: TrueType and CFF fonts wind
+    // their contours in opposite directions.
+    for (const sp of svgData.paths) shapes.push(...SVGLoader.createShapes(sp));
 
     if (shapes.length === 0) {
       // Glyph produced no path (e.g. space). Advance the cursor anyway

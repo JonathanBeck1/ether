@@ -172,7 +172,6 @@ export function attachSceneManager(
       detach() {
         if (detached) return;
         detached = true;
-        window.removeEventListener('beforeunload', attachment.detach);
         unbind?.();
         if (tagged[SCENE_MANAGER_KEY] === manager) {
           manager.destroy();
@@ -188,8 +187,9 @@ export function attachSceneManager(
     // route mount that route's scene directly.
     transitionTo(location.pathname);
     unbind = options.bind?.(attachment);
-    // Real teardown only on hard unload / tab close.
-    window.addEventListener('beforeunload', attachment.detach, { once: true });
+    // No unload hook: a real unload frees the renderer and GL context with
+    // the document, and beforeunload also fires when the page stays
+    // (mailto:, downloads, a cancelled leave prompt).
 
     return attachment;
   })();

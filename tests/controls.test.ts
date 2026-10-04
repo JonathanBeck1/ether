@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import { ColorControl } from '../src/dev/tweaks/controls/ColorControl';
 import { SliderControl } from '../src/dev/tweaks/controls/SliderControl';
 import { VectorControl } from '../src/dev/tweaks/controls/VectorControl';
 import { SelectControl } from '../src/dev/tweaks/controls/SelectControl';
@@ -13,6 +14,8 @@ Object.assign(Element.prototype, {
   releasePointerCapture(id: number) { captured.delete(id); },
   hasPointerCapture(id: number) { return captured.has(id); },
 });
+// Nor a 2D canvas; the color picker already skips painting on a null context.
+Object.assign(HTMLCanvasElement.prototype, { getContext: () => null });
 
 /** The wiring Registry gives every control, over a real Store. */
 function mountSlider() {
@@ -90,6 +93,29 @@ function mountSelect() {
   };
   control.mount(ctx);
   return { store, control };
+}
+
+function mountColor() {
+  const store = new Store();
+  store.register('c', '#6e9fff');
+  let live = '#6e9fff';
+
+  const control = new ColorControl({
+    path: 'c',
+    get: () => live,
+    set: (v) => { live = v; },
+    default: '#6e9fff',
+    export: null,
+  });
+  const ctx: ControlContext = {
+    accent: '#fff',
+    swatches: [],
+    beginEdit: () => store.beginUndoCapture(),
+    live: (v: TweakValue) => { live = v as string; store.setLive('c', v); },
+    commit: (v: TweakValue) => { live = v as string; store.commit('c', v); store.pushUndo(); },
+  };
+  control.mount(ctx);
+  return { store, control, live: () => live };
 }
 
 describe('SliderControl', () => {
@@ -181,5 +207,48 @@ describe('SelectControl', () => {
     options[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(list.classList.contains('tw-open')).toBe(false);
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+describe('ColorControl', () => {
+  it('keeps the closed picker panel out of the tab order', () => {
+    const { control } = mountColor();
+    const row = control.el.querySelector('.tw-color-row') as HTMLElement;
+    const panel = control.el.querySelector('.tw-color-panel')!;
+
+    expect(panel.hasAttribute('inert')).toBe(true);
+    row.click();
+    expect(panel.hasAttribute('inert')).toBe(false);
+    row.click();
+    expect(panel.hasAttribute('inert')).toBe(true);
+  });
+
+  it('reverts an empty RGB field on blur instead of zeroing the channel', () => {
+    const { store, control, live } = mountColor();
+    const fields = control.el.querySelectorAll<HTMLInputElement>('.tw-rgb-field');
+
+    for (const field of fields) {
+      field.value = '';
+      field.dispatchEvent(new FocusEvent('blur'));
+    }
+    expect(live()).toBe('#6e9fff');
+    expect(store.get('c')).toBe('#6e9fff');
+    expect(store.diff()).toEqual({});
+    expect(fields[0].value).toBe('110');
+  });
+
+  it('pushes no undo entry when an unchanged RGB field blurs', () => {
+    const { store, control } = mountColor();
+    (control.el.querySelector('.tw-color-row') as HTMLElement).click();
+    const [r, g] = control.el.querySelectorAll<HTMLInputElement>('.tw-rgb-field');
+
+    r.value = '0';
+    r.dispatchEvent(new FocusEvent('blur'));
+    expect(store.get('c')).toBe('#009fff');
+    expect(g.value).toBe('159');
+    g.dispatchEvent(new FocusEvent('blur'));
+
+    store.undo();
+    expect(store.get('c')).toBe('#6e9fff');
   });
 });

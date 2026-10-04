@@ -1,5 +1,6 @@
-// Builds the plain-Vite fixture, serves it, runs the core, recovery and
-// asset suites against it, and exits non-zero on any failure.
+// Builds the plain-Vite fixture, serves it, runs the core, recovery,
+// asset, lifecycle and tweaks suites against it, and exits non-zero on any
+// failure.
 // `npm run test:e2e`.
 //
 // ETHER_DIST=1 points the fixture's `ether/*` alias at dist/ instead of src/.
@@ -9,7 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { build, preview } from 'vite';
 import { runAssetsSuite } from './assets.mjs';
 import { runCoreSuite } from './core.mjs';
+import { runLifecycleSuite } from './lifecycle.mjs';
 import { runRecoverySuite } from './recovery.mjs';
+import { runTweaksSuite } from './tweaks.mjs';
 
 const configFile = fileURLToPath(new URL('../fixture/vite.config.ts', import.meta.url));
 
@@ -33,6 +36,8 @@ try {
     ...(await runCoreSuite(baseUrl, launchOptions)),
     ...(await runRecoverySuite(baseUrl, launchOptions)),
     ...(await runAssetsSuite(baseUrl, launchOptions)),
+    ...(await runLifecycleSuite(baseUrl, launchOptions)),
+    ...(await runTweaksSuite(baseUrl, launchOptions)),
   ];
 } finally {
   await server.close();

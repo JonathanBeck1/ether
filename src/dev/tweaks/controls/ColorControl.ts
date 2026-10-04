@@ -55,7 +55,8 @@ export class ColorControl extends BaseControl<string> {
     this.on(row, 'click', () => this.toggleOpen());
 
     // ── Expanded panel ──
-    this.panel = el('div', { class: 'tw-color-panel' });
+    // A 0px-tall panel still holds tab stops; inert takes them out while closed.
+    this.panel = el('div', { class: 'tw-color-panel', attrs: { inert: '' } });
     const inner = el('div', { style: { padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '8px' } });
 
     const pickers = el('div', { style: { display: 'flex', gap: '8px' } });
@@ -233,6 +234,7 @@ export class ColorControl extends BaseControl<string> {
   private toggleOpen(): void {
     this.open = !this.open;
     this.panel.classList.toggle('tw-open', this.open);
+    this.panel.toggleAttribute('inert', !this.open);
     if (this.open) {
       this.paintAll();
       // height:auto doesn't transition — measure and set an explicit px height.
@@ -382,9 +384,11 @@ export class ColorControl extends BaseControl<string> {
       );
       const typed = (commit: boolean): void => {
         const n = Number(field.value);
-        if (Number.isFinite(n)) {
+        const next = Math.max(0, Math.min(255, Math.round(n)));
+        // Number('') is 0: an empty or untouched field must revert, not zero the channel.
+        if (field.value.trim() !== '' && Number.isFinite(n) && next !== channelValue(hsvToRgb(this.hsv), i)) {
           this.beginEdit();
-          setChannel(Math.max(0, Math.min(255, Math.round(n))), commit);
+          setChannel(next, commit);
         } else {
           this.paintRgb(); // boundary: invalid → revert display
         }

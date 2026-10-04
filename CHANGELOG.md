@@ -4,6 +4,38 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `ether/text/msdf`: `msdfText({ timeoutMs })` bounds how long the call
+  waits for troika's glyph atlas once the font preflight passes. Default
+  10000; `Infinity` waits indefinitely.
+
+### Fixed
+
+- `ether/core`: nothing tears the engine down on `beforeunload` any more.
+  The event also fires when the page stays (a `mailto:` link, a download,
+  a cancelled leave prompt) or is kept in the back/forward cache, and each
+  left a live page over a dead canvas. A real unload frees the renderer
+  and GL context with the document.
+- `ether/quality`: `detect-gpu` is imported as a namespace. Its Node entry
+  is UMD with no named exports, so importing any ether entry on the server
+  threw. `test:dist` now imports every entry in plain Node.
+- `ether/text`: `extrudedWord` finds glyph holes by nesting instead of
+  winding direction, so CFF (`.otf`) fonts, which wind their contours
+  opposite to TrueType, extrude with their counters open. A font with
+  overlapping contours can still have one read as a hole.
+- `ether/postfx`: `loadLUT` rejects on an HTTP error or a file that is not
+  a LUT, such as an SPA fallback page. postprocessing's loader settled on
+  neither.
+- `ether/text/msdf`: `msdfText` rejects where troika never calls back. The
+  preflight, now one CORS-safelisted `Range` request, checks the file's
+  magic bytes, so a woff2 or an HTML page served as the font fails up
+  front; a blocked unicode-fallback fetch fails after `timeoutMs`.
+- `ether/dev`: a closed color row's fields leave the tab order, and an
+  emptied channel field reverts instead of zeroing the channel.
+
 ## [1.1.0] — 2026-09-15
 
 The first release after the engine went through four adversarial reviews

@@ -346,6 +346,8 @@ export class SceneManager {
    * `attachSceneManager`? The full teardown is the attachment's
    * `detach()` — the vanilla router's `destroy()` — which also unbinds
    * navigation and frees the canvas. This alone leaves both behind.
+   * Page unload needs neither: the browser frees the renderer and its GL
+   * context with the document.
    *
    * NOTE: we deliberately do NOT call renderer.forceContextLoss(). On
    * Astro client-side navigations the canvas (and its WebGL context)
