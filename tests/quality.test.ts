@@ -120,18 +120,22 @@ describe('detectQuality fallbacks', () => {
 });
 
 describe('detectQuality reduced motion', () => {
-  it('downgrades exactly one tier, never two', async () => {
+  it('keeps the tier and turns smooth scroll off', async () => {
     gpu.tier = 3;
     browser({ reducedMotion: true });
     const high = await (await load()).detectQuality();
-    expect(high.tier).toBe('MID');
-    expect(high.msaaSamples).toBe(2);
-    expect(high.enableSmoothScroll).toBe(true);
+    expect(high.tier).toBe('HIGH');
+    expect(high.dprCap).toBe(2);
+    expect(high.msaaSamples).toBe(4);
+    expect(high.enableSmoothScroll).toBe(false);
     expect(high.reducedMotion).toBe(true);
 
     gpu.tier = 2;
     browser({ reducedMotion: true });
-    expect((await (await load()).detectQuality()).tier).toBe('LOW');
+    const mid = await (await load()).detectQuality();
+    expect(mid.tier).toBe('MID');
+    expect(mid.msaaSamples).toBe(2);
+    expect(mid.enableSmoothScroll).toBe(false);
 
     gpu.tier = 0;
     browser({ reducedMotion: true });

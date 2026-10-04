@@ -167,7 +167,7 @@ tree-shake reliably:
 | `ether/vanilla` | `initSceneRouter`, `VanillaRouter`, `VanillaRouterOptions`, `SceneFactory`, `SceneRoutes` | The same pattern for plain Vite sites: `popstate` drives back/forward, `router.navigate()` drives programmatic moves, `interceptLinks` opts same-origin anchors in. Your app swaps the DOM it owns; the engine swaps scenes. |
 | `ether/quality` | `detectQuality`, `configureQuality`, `getQuality`, `QualityOptions`, `QualityProfile`, `QualityTier` | One-shot GPU tier (LOW / MID / HIGH) via `detect-gpu`, folded into the knobs the engine can toggle cheaply: DPR cap, composer MSAA samples, smooth scroll, reduced-motion. `configureQuality` (before the first detect) points the probe at self-hosted benchmark tables and caps how long it may take. |
 | `ether/postfx` | `createComposer`, `Composer`, `ComposerOptions`, `createHeroComposer`, `createNightComposer`, `createLightComposer`, `BloomComposer`, `PresetOptions`, `NightComposerOptions`, `DitherEffect`, `loadLUT` | One composer shape — render → your effects → (ACES when `hdr`) → dither, fused into a single fullscreen pass — and three tunings of it: restrained LDR bloom for a dark scene with one bright accent, hotter HDR/ACES bloom for emissive-heavy scenes, dither-only for pale grounds. `loadLUT` loads a `.cube`/`.3dl` grade for postprocessing's `LUT3DEffect`, and rejects on an HTTP error or a file that is not a LUT (an SPA fallback page, say). Pass `multisampling: quality.msaaSamples` — the composer's targets are where edge AA actually happens. |
-| `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only on tiers that enable smooth scroll. |
+| `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only when the quality profile enables smooth scroll (never under reduced motion). |
 | `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | Type as form: opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
 | `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own `.ttf`, `.otf` or `.woff` — the URL is preflighted and its first bytes checked, so an unreachable URL, a woff2 (troika cannot parse one) or an HTML page served in its place rejects instead of hanging. Characters your font does not cover still fall back to troika's unicode-font-resolver, whose data comes from jsDelivr: set `unicodeFontsURL` to your own copy, or keep the text inside the font's coverage. If the atlas is not ready within `timeoutMs` (default 10000), most often because that fallback fetch is blocked, the call rejects naming the font. |
 | `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. Register every load with `progress.track` before awaiting the first, so the total is known up front. No asset pipeline — compress offline, load here. |
@@ -384,8 +384,8 @@ context loss, so a later attach on the same canvas reuses the context.
 `detectQuality()` probes the GPU once with `detect-gpu` and maps its
 tier: 0 → LOW; 1 → LOW when the primary input cannot hover, else MID;
 2 → MID; 3 → HIGH. A probe that throws reads LOW; one that outlasts
-`timeoutMs` (default 1500) counts as tier 1. Reduced motion then drops
-exactly one tier. The probe is cached in flight, so concurrent and later
+`timeoutMs` (default 1500) counts as tier 1. Reduced motion leaves the
+tier alone. The probe is cached in flight, so concurrent and later
 callers share one probe and one profile: `configureQuality()` only
 counts before the first call, and `getQuality()` reads the result
 synchronously (null until it resolves). Attaching awaits the profile
@@ -398,12 +398,12 @@ force a tier for QA.
 |---|---|---|---|---|
 | `dprCap` | 1.5 | 1.5 | 2 | the manager: `min(devicePixelRatio, dprCap)` |
 | `msaaSamples` | 0 | 2 | 4 | your scene, as the composer's `multisampling` |
-| `enableSmoothScroll` | false | true | true | your scene: build a `ScrollBridge` only when true |
+| `enableSmoothScroll` | false | true (false under reduced motion) | true (false under reduced motion) | your scene: build a `ScrollBridge` only when true |
 | `enablePostFX`, `enableDither` | true | true | true | your scene: build the composer, pass `enableDither` |
 | `antialias` | false | false | false | the manager: context MSAA, dead under a composer |
 
 `reducedMotion` mirrors the media query for your scene to honor; the
-engine uses it only for the downgrade. LOW also asks the browser for a
+engine uses it only to turn smooth scroll off. LOW also asks the browser for a
 `low-power` GL context.
 
 ### Runtime diagnostics

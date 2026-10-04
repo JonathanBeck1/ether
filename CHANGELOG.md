@@ -32,6 +32,14 @@ actually running, kept separate from what the quality profile asked for.
   call's, which on a composed scene read 1. `info.render.frame` and
   `info.memory` are unaffected, and a renderer whose `info.autoReset`
   you set to false keeps accumulating.
+- `ether/quality`: `enableSmoothScroll` is false under
+  `prefers-reduced-motion` on every tier, so a consumer that builds the
+  scroll bridge only when the flag is true gives those users native scroll.
+- `ether/quality`: reduced motion no longer lowers the tier, so DPR cap and
+  composer MSAA follow the GPU alone. It still turns smooth scroll off and
+  stays exposed as `reducedMotion`. Reduced-motion users on MID and HIGH
+  GPUs now pay the same GPU cost as everyone else on that hardware,
+  including a high-performance context on dual-GPU laptops.
 
 ### Fixed
 

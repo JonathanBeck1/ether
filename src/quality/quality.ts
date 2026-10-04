@@ -23,6 +23,9 @@
  *   HIGH  - everything else (recent desktop, M-series Macs, flagship phones).
  *           DPR 2, 4× composer MSAA, bloom + dither, smooth scroll.
  *
+ * Reduced motion turns smooth scroll off on every tier and leaves the tier
+ * itself alone: lower DPR or MSAA removes no motion.
+ *
  * Why we don't sniff UA: spoofed strings, lying iPads, etc. detect-gpu has a
  * vetted benchmark per GPU model + a fallback fingerprint.
  */
@@ -81,7 +84,7 @@ export interface QualityProfile {
    * is on. 0 disables. Cheap on mobile tile GPUs.
    */
   msaaSamples: number;
-  /** Whether the page should run Lenis smooth-scroll. */
+  /** Whether the page should run Lenis smooth-scroll. False under reduced motion. */
   enableSmoothScroll: boolean;
   /** True if the user has prefers-reduced-motion. Mirrored here for one-stop reads. */
   reducedMotion: boolean;
@@ -149,16 +152,6 @@ async function resolveProfile(): Promise<QualityProfile> {
     clearTimeout(timer);
   }
 
-  // Reduced-motion users get downgraded one tier (HIGH→MID, MID→LOW, LOW→LOW)
-  // — they explicitly asked for less stuff happening. Must be else-if: two
-  // sequential ifs took HIGH→MID→LOW in one pass, double-downgrading
-  // reduced-motion users on high-end GPUs (softer DPR + no MSAA + native
-  // scroll on exactly the machines that could afford the quality).
-  if (reducedMotion) {
-    if (tier === 'HIGH') tier = 'MID';
-    else if (tier === 'MID') tier = 'LOW';
-  }
-
   cached = {
     tier,
     rawScore,
@@ -194,8 +187,9 @@ async function resolveProfile(): Promise<QualityProfile> {
     // same rAF-synced scroll position desktop has, which is what feeds
     // ScrollTrigger a smooth per-frame value (the buttery scroll-to-3D
     // feel). Without it, touch bound the 3D to iOS's stepped native
-    // scroll and read as choppy.
-    enableSmoothScroll: tier !== 'LOW',
+    // scroll and read as choppy. Off under reduced motion: Lenis
+    // interpolation is itself motion the user asked not to see.
+    enableSmoothScroll: tier !== 'LOW' && !reducedMotion,
     reducedMotion,
   };
   return cached;

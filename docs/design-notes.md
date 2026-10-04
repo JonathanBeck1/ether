@@ -23,8 +23,10 @@ a teardown there would leave a live page with a dead engine.
 You cannot change MSAA on a live WebGL context, so the GPU tier is
 resolved once and the renderer is built from it. Three tiers, chosen for
 what the engine can toggle cheaply: DPR cap, composer MSAA, dither,
-smooth scroll. Reduced motion downgrades exactly one tier; the else-if
-matters, because two sequential ifs once took HIGH to LOW in one pass.
+smooth scroll. Reduced motion turns smooth scroll off on every tier and
+does not lower the tier: DPR and MSAA remove no motion, so the hardware
+keeps the rendering it can afford. It stays exposed as `reducedMotion`
+for scenes to honor.
 
 **Edge anti-aliasing comes from the composer, not the context.**
 [`src/quality/quality.ts`](../src/quality/quality.ts), [`src/postfx/composer.ts`](../src/postfx/composer.ts).
