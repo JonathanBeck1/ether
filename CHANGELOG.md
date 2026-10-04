@@ -41,6 +41,14 @@ actually running, kept separate from what the quality profile asked for.
   GPUs now pay the same GPU cost as everyone else on that hardware,
   including a high-performance context on dual-GPU laptops.
 
+### Deprecated
+
+- `ether/dev`: the `Control` and `ControlContext` types and the `Tweaks`
+  members the README doesn't name (`store`, `registryEntries`,
+  `setPersistTimer`, `applyMap`, `footerEl`, `headerActionsEl`) are
+  unsupported and may be removed at 2.0; the README's Stability section
+  lists what is public.
+
 ### Fixed
 
 - `ether/core`: nothing tears the engine down on `beforeunload` any more.

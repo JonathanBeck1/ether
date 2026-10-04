@@ -500,14 +500,29 @@ These belong to each site:
 ## Stability
 
 1.0 means the sub-path exports in the module map are the public API and
-follow semver: a breaking change to any of them is a major.
-`getDiagnostics()` and `RuntimeDiagnostics` are public API under semver:
-fields are added in minors; a removal, rename or change of meaning is a
-major. Not the API: file paths under `src/`, the chunk layout of the npm
-build, and the `__sceneManager` tag on the canvas (read it in tests and
-devtools, e.g. `getDiagnostics()`; don't build app code on it).
-Deprecations ship with a console warning for at least one minor
-before removal. Peer ranges widen in minors when the peer's release is
+follow semver: a breaking change to any of them is a major. That covers
+every name in the module map, including the `ether/dev` descriptor
+types, `MonitorInput` and `DiffMap`, plus these members:
+`SceneManager`'s `renderer`, `quality`, `activeScene` and
+`getDiagnostics()`, and `Tweaks.setOverrideTeardown()`.
+`RuntimeDiagnostics` gains fields in minors; a removal, rename or change
+of meaning is a major.
+
+Tooling, stable for 1.x: `attachSceneManager` and the routers built on it
+tag the canvas with `__sceneManager`, and remove the tag on detach (a
+manager constructed directly carries none). Read it in tests and
+devtools, e.g. `getDiagnostics()`; don't build app code on it.
+
+Exported but unsupported, removable at 2.0: the `Control` and
+`ControlContext` types, and the `Tweaks` members not named in this README
+(`store`, `registryEntries`, `setPersistTimer`, `applyMap`, `footerEl`,
+`headerActionsEl`), which are panel internals.
+
+Not the API: file paths under `src/` and the chunk layout of the npm
+build. Deprecations ship with a console warning for at least one minor
+before removal; type-only and member deprecations, which cannot warn at
+runtime, are announced here and under the CHANGELOG's Deprecated
+heading. Peer ranges widen in minors when the peer's release is
 non-breaking for how the kit uses it. See [CHANGELOG](./CHANGELOG.md).
 
 ## Development
