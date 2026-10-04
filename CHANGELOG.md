@@ -4,12 +4,16 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] — 2026-10-04
 
-`SceneManager` now reports what the runtime is actually doing through
-`getDiagnostics()`: a pull-only, JSON-safe snapshot of the live scene and
-hop phase, the render loop, whole-frame draw counts and the composer
-actually running, kept separate from what the quality profile asked for.
+The release where the engine reports what it is actually doing:
+`SceneManager.getDiagnostics()` is a pull-only, JSON-safe snapshot of the
+live scene, the render loop, whole-frame draw counts and the composer
+actually running. 1.2.0 carries the five fixes from the October review,
+among them the `beforeunload` teardown that froze the canvas behind a
+`mailto:` link; makes reduced motion a motion policy rather than a
+quality tier; and names what is public API, what is a tooling hook and
+what is exported but unsupported.
 
 ### Added
 

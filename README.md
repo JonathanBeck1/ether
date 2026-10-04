@@ -73,7 +73,7 @@ versions come from the production site that consumes the kit, which is
 built, typechecked and smoke-tested on each CI run of the private
 monorepo this repository is mirrored from (see [Provenance](#provenance)).
 
-| | 1.0.0 | 1.1.0 and Unreleased | Tested |
+| | 1.0.0 | 1.1.0 and 1.2.0 | Tested |
 |---|---|---|---|
 | `three` | `^0.184.0` | `^0.184.0` | 0.184.0 |
 | `postprocessing` | `^6.39.0` | `^6.39.0` | 6.39.4 (kit), 6.39.1 (site) |
