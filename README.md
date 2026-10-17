@@ -3,6 +3,10 @@
 [![CI](https://github.com/JonathanBeck1/ether/actions/workflows/ci.yml/badge.svg)](https://github.com/JonathanBeck1/ether/actions/workflows/ci.yml)
 [![npm: coming soon](https://img.shields.io/badge/npm-coming%20soon-555)](#install)
 
+![The TakeTwo hero in a seamless loop: the extruded mark at rest over the caustics backdrop, its letters scattering as the page scrolls down, the word reassembling mid-page, then scattering again on the way back up to rest](https://raw.githubusercontent.com/JonathanBeck1/ether/master/docs/hero-loop.webp)
+
+Live: [taketwomediaus.com](https://taketwomediaus.com)
+
 A WebGL engine for premium Astro sites, built on three.js. It owns the layer
 a studio site needs above the renderer — one persistent `<canvas>` that
 survives client-side navigation (Astro or plain Vite), so the renderer and
@@ -33,15 +37,12 @@ framework replaces the DOM, not after) — is written up in
 See also [Provenance](#provenance).
 
 Extracted from the production site of a design studio, where it runs
-today: [taketwo-media.vercel.app](https://taketwo-media.vercel.app). The
-frames below are that site, captured from the live build — the extruded
-mark at rest after the intro, then mid-way through its scroll-driven
-dispersal. The header and the scroll cue are DOM; the mark and the
-backdrop are the scene.
-
-![The TakeTwo hero at rest: the extruded mark with its iridescent rim over the caustics backdrop](https://raw.githubusercontent.com/JonathanBeck1/ether/master/docs/hero-rest.jpg)
-
-![The same mark mid-scroll: letters tumbling out of formation](https://raw.githubusercontent.com/JonathanBeck1/ether/master/docs/hero-mid.jpg)
+today: [taketwomediaus.com](https://taketwomediaus.com). The loop at the
+top is that site, captured from the live build — the extruded mark at
+rest after the intro, its scroll-driven dispersal as the page moves down,
+the reform where the word reassembles mid-page, and the same path back to
+rest. The header and the scroll cue are DOM; the mark and the backdrop
+are the scene.
 
 ## Requirements
 
@@ -553,7 +554,7 @@ against the sources and again against the built package.
 ## Provenance
 
 Extracted from the private monorepo behind
-[TakeTwo Media's site](https://taketwo-media.vercel.app), where the engine
+[TakeTwo Media's site](https://taketwomediaus.com), where the engine
 runs in production (built May–September 2026). That monorepo stays the
 working home; this repository is a filtered mirror of its `kit/` folder,
 published with a deterministic `git filter-repo` split. The commits are the
