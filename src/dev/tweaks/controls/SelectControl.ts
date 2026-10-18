@@ -1,6 +1,6 @@
-import type { SelectDescriptor } from '../types';
-import { BaseControl } from './BaseControl';
-import { el } from '../dom';
+import type { SelectDescriptor } from '../types.js';
+import { BaseControl } from './BaseControl.js';
+import { el } from '../dom.js';
 
 /**
  * Discrete enum control. ≤4 options render as segmented pills (the whole set is

@@ -15,4 +15,4 @@ export {
   type ExtrudedLetter,
   type ExtrudedWordOptions,
   type ExtrudeProfile,
-} from './extrudedWord';
+} from './extrudedWord.js';

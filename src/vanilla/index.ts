@@ -11,4 +11,4 @@ export {
   type SceneRoutes,
   type VanillaRouter,
   type VanillaRouterOptions,
-} from './router';
+} from './router.js';

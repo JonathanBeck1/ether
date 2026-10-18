@@ -13,9 +13,9 @@
 //
 // `SceneManager.getDiagnostics()` returns a JSON-safe snapshot of what
 // the runtime is doing.
-export { SceneManager } from './SceneManager';
-export { BaseScene, type BaseSceneOptions } from './BaseScene';
-export type { Scene, RuntimeDiagnostics } from './types';
+export { SceneManager } from './SceneManager.js';
+export { BaseScene, type BaseSceneOptions } from './BaseScene.js';
+export type { Scene, RuntimeDiagnostics } from './types.js';
 export {
   attachSceneManager,
   normalizeRoute,
@@ -23,4 +23,4 @@ export {
   type AttachOptions,
   type SceneFactory,
   type SceneRoutes,
-} from './attach';
+} from './attach.js';

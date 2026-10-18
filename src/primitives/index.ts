@@ -6,4 +6,4 @@
 //
 // Future: `Disposables` aggregator, single-rAF `Ticker` if site code
 // shows it'd benefit.
-export { ShaderQuad, type ShaderQuadOptions } from './ShaderQuad';
+export { ShaderQuad, type ShaderQuadOptions } from './ShaderQuad.js';

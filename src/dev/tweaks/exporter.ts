@@ -2,10 +2,10 @@
 // paste-ready constants block (grouped under the host's section banners, when
 // it supplies a table) or a flat JSON map. No DOM, no THREE — just strings.
 
-import type { DiffMap, ExportSection, ExportTarget, TweakValue } from './types';
-import type { RegistryEntry } from './Registry';
-import { numberToLiteral } from './format';
-import { hexNormalize } from './color';
+import type { DiffMap, ExportSection, ExportTarget, TweakValue } from './types.js';
+import type { RegistryEntry } from './Registry.js';
+import { numberToLiteral } from './format.js';
+import { hexNormalize } from './color.js';
 
 interface Line {
   constant: string;

@@ -1,4 +1,4 @@
-import type { SceneManager } from '../core/SceneManager';
+import type { SceneManager } from '../core/SceneManager.js';
 
 /**
  * Lightweight perf + diagnostics overlay.

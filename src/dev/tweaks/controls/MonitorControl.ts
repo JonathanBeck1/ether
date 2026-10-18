@@ -1,7 +1,7 @@
-import type { MonitorDescriptor } from '../types';
-import { BaseControl } from './BaseControl';
-import { el } from '../dom';
-import { formatNumber } from '../format';
+import type { MonitorDescriptor } from '../types.js';
+import { BaseControl } from './BaseControl.js';
+import { el } from '../dom.js';
+import { formatNumber } from '../format.js';
 
 const SAMPLES = 60;
 const SVG_NS = 'http://www.w3.org/2000/svg';

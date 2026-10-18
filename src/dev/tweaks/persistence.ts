@@ -2,7 +2,7 @@
 // every way. Every read is boundary-guarded: a throw / bad version / non-object
 // payload falls to defaults silently (never crash a dev session on stale state).
 
-import type { DiffMap } from './types';
+import type { DiffMap } from './types.js';
 
 const PERSIST_DEBOUNCE_MS = 280;
 

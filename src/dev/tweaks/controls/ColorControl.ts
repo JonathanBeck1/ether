@@ -1,10 +1,10 @@
 /// <reference path="../eyedropper.d.ts" />
-import type { ColorDescriptor } from '../types';
-import type { HSV } from '../color';
-import { BaseControl } from './BaseControl';
-import { el } from '../dom';
-import { hexNormalize, hexToHsv, hsvToHex, hsvToRgb, rgbToHex } from '../color';
-import { attachScrub } from '../scrub';
+import type { ColorDescriptor } from '../types.js';
+import type { HSV } from '../color.js';
+import { BaseControl } from './BaseControl.js';
+import { el } from '../dom.js';
+import { hexNormalize, hexToHsv, hsvToHex, hsvToRgb, rgbToHex } from '../color.js';
+import { attachScrub } from '../scrub.js';
 
 const SV_W = 168;
 const SV_H = 120;

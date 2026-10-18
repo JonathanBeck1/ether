@@ -11,4 +11,4 @@ export {
   type QualityOptions,
   type QualityProfile,
   type QualityTier,
-} from './quality';
+} from './quality.js';

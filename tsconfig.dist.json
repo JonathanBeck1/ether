@@ -1,7 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": false,
+    "types": [],
     "paths": { "@jonathanbeck1/ether/*": ["./dist/*/index.d.ts"] }
   },
   "include": ["tests/dist-check.ts"],

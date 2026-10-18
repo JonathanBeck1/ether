@@ -1,8 +1,8 @@
-import type { SceneManager } from '../core/SceneManager';
-import { attachSceneManager, type Attachment, type SceneRoutes } from '../core/attach';
-import type { QualityProfile } from '../quality/quality';
+import type { SceneManager } from '../core/SceneManager.js';
+import { attachSceneManager, type Attachment, type SceneRoutes } from '../core/attach.js';
+import type { QualityProfile } from '../quality/quality.js';
 
-export type { SceneFactory, SceneRoutes } from '../core/attach';
+export type { SceneFactory, SceneRoutes } from '../core/attach.js';
 
 export interface VanillaRouterOptions {
   /** Override the quality profile (skip auto-detection). */

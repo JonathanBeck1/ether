@@ -1,4 +1,4 @@
-export { Tweaks } from './Tweaks';
+export { Tweaks } from './Tweaks.js';
 export type {
   TweaksConfig,
   TweaksTheme,
@@ -18,5 +18,5 @@ export type {
   IntervalDescriptor,
   MonitorDescriptor,
   VectorDescriptor,
-} from './types';
-export type { MonitorInput } from './Registry';
+} from './types.js';
+export type { MonitorInput } from './Registry.js';

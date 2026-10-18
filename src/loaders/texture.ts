@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { tracked, type TrackOptions } from './progress';
+import { tracked, type TrackOptions } from './progress.js';
 
 export interface LoadTextureOptions extends TrackOptions {
   /** `THREE.SRGBColorSpace` for color maps; leave unset for data maps

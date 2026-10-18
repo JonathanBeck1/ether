@@ -1,11 +1,11 @@
-import type { DiffMap, GroupConfig, TweaksConfig, TweaksTheme, TweakValue } from './types';
-import type { RegistryEntry } from './Registry';
-import { Registry, GroupBuilder } from './Registry';
-import { Store } from './Store';
-import { applyTokens, buildFontFace, resolveTheme, SCOPED_CSS } from './tokens';
-import { el } from './dom';
-import { formatNumber } from './format';
-import { buildConstantsBlock, buildJson } from './exporter';
+import type { DiffMap, GroupConfig, TweaksConfig, TweaksTheme, TweakValue } from './types.js';
+import type { RegistryEntry } from './Registry.js';
+import { Registry, GroupBuilder } from './Registry.js';
+import { Store } from './Store.js';
+import { applyTokens, buildFontFace, resolveTheme, SCOPED_CSS } from './tokens.js';
+import { el } from './dom.js';
+import { formatNumber } from './format.js';
+import { buildConstantsBlock, buildJson } from './exporter.js';
 import {
   createDebouncedWriter,
   decodeURLState,
@@ -16,7 +16,7 @@ import {
   readState,
   savePreset,
   writePanelState,
-} from './persistence';
+} from './persistence.js';
 
 const READBACK_MS = 500; // ~2 Hz, the Stats cadence
 

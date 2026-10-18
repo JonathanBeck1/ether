@@ -1,5 +1,5 @@
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ensureScrollTriggerRegistered } from './scrollBridge';
+import { ensureScrollTriggerRegistered } from './scrollBridge.js';
 
 export interface ScrollProgressOptions {
   /** ScrollTrigger `end` (e.g. `'+=60%'`, `'bottom bottom'`, a number). */

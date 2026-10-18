@@ -1,6 +1,6 @@
 import type * as THREE from 'three';
 import { BloomEffect, KernelSize } from 'postprocessing';
-import { createComposer, type Composer } from './composer';
+import { createComposer, type Composer } from './composer.js';
 
 export interface PresetOptions {
   /** Include the dither effect — see `ComposerOptions.enableDither`. Default true. */

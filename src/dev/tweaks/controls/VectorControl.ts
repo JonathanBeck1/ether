@@ -1,8 +1,8 @@
-import type { VectorDescriptor } from '../types';
-import { BaseControl } from './BaseControl';
-import { el } from '../dom';
-import { formatNumber } from '../format';
-import { attachScrub } from '../scrub';
+import type { VectorDescriptor } from '../types.js';
+import { BaseControl } from './BaseControl.js';
+import { el } from '../dom.js';
+import { formatNumber } from '../format.js';
+import { attachScrub } from '../scrub.js';
 
 const PAD = 96; // XY pad edge (px)
 

@@ -4,6 +4,18 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Types resolve under `moduleResolution: "node16"` and `"nodenext"`,
+  not only `"bundler"`. Relative imports had no file extension, which
+  those modes do not resolve. A git or `file:` install failed to compile
+  the kit's sources under them; the built package's declarations failed
+  under `skipLibCheck: false` and, under `skipLibCheck: true`, typed most
+  entries' exports as `any` without an error. Relative imports now end
+  in `.js`; the built JavaScript is unchanged.
+
 ## [1.3.0] — 2026-10-18
 
 The release where a scene cleans up after itself and a scene that throws
@@ -218,9 +230,10 @@ of every module, with a test pinning each fix.
 - A control's `reset()` opens a gesture, so it is undoable and the next
   undo no longer consumes the edit before it.
 - Docs: the `default` descriptor field describes the baseline the code
-  captures, `Stats` takes a routes map, and the Tweaks sample imports
-  dynamically as the claim above it says.
-
+  captures, the `Stats` example passes `initSceneRouter` a routes map,
+  and the Tweaks sample imports dynamically as the claim above it says.
+  (Corrected: this entry first said `Stats` takes a routes map; it takes
+  the `SceneManager`.)
 - `ether/postfx`: `DitherEffect` applies its noise through the sRGB
   transfer, one output step peak to peak at every luminance. Added in
   linear light, the same amount was several steps once encoded in the

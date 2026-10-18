@@ -8,7 +8,7 @@ import {
   ToneMappingMode,
   type Effect,
 } from 'postprocessing';
-import { DitherEffect } from './DitherEffect';
+import { DitherEffect } from './DitherEffect.js';
 
 export interface ComposerOptions {
   /** Your effects, in order. They merge with the ACES pass (`hdr`) and

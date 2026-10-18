@@ -8,9 +8,9 @@
 // `createScrollProgress` makes one scrubbed ScrollTrigger mapping page-scroll
 // progress (0..1) to a callback — the reusable "scroll drives a 3D value"
 // shape. Event-style triggers (class/attr toggles) stay in site code.
-export { ScrollBridge, type ScrollBridgeOptions } from './scrollBridge';
+export { ScrollBridge, type ScrollBridgeOptions } from './scrollBridge.js';
 export {
   createScrollProgress,
   type ScrollProgressOptions,
   type ScrollProgressTrigger,
-} from './scrollProgress';
+} from './scrollProgress.js';

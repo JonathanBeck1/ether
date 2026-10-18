@@ -12,15 +12,15 @@ import type {
   ToggleDescriptor,
   TweakValue,
   VectorDescriptor,
-} from './types';
-import type { Store } from './Store';
-import { SliderControl } from './controls/SliderControl';
-import { ColorControl } from './controls/ColorControl';
-import { ToggleControl } from './controls/ToggleControl';
-import { SelectControl } from './controls/SelectControl';
-import { IntervalControl } from './controls/IntervalControl';
-import { MonitorControl } from './controls/MonitorControl';
-import { VectorControl } from './controls/VectorControl';
+} from './types.js';
+import type { Store } from './Store.js';
+import { SliderControl } from './controls/SliderControl.js';
+import { ColorControl } from './controls/ColorControl.js';
+import { ToggleControl } from './controls/ToggleControl.js';
+import { SelectControl } from './controls/SelectControl.js';
+import { IntervalControl } from './controls/IntervalControl.js';
+import { MonitorControl } from './controls/MonitorControl.js';
+import { VectorControl } from './controls/VectorControl.js';
 
 /** Input shape for addMonitor — read-only, so it omits the writable contract
  *  fields (set/default/export) the adder fills with no-ops. */

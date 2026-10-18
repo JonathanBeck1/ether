@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-import { tracked, type TrackOptions } from './progress';
+import { tracked, type TrackOptions } from './progress.js';
 
 export interface LoadGLTFOptions extends TrackOptions {
   /** Folder you serve the Draco decoder from, for Draco-compressed

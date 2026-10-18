@@ -1,8 +1,8 @@
-import type { SliderDescriptor } from '../types';
-import { BaseControl, humanize } from './BaseControl';
-import { el } from '../dom';
-import { formatNumber } from '../format';
-import { attachScrub } from '../scrub';
+import type { SliderDescriptor } from '../types.js';
+import { BaseControl, humanize } from './BaseControl.js';
+import { el } from '../dom.js';
+import { formatNumber } from '../format.js';
+import { attachScrub } from '../scrub.js';
 
 /**
  * The signature slider. Five interactions: track drag, readout drag-scrub,

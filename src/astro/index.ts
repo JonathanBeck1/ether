@@ -13,4 +13,4 @@ export {
   type SceneFactory,
   type SceneRoutes,
   type InitSceneRouterOptions,
-} from './router';
+} from './router.js';

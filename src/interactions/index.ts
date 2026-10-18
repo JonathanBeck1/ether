@@ -7,4 +7,4 @@
 // `.project-card__media` (or fall back to the card itself):
 //   --tilt-x, --tilt-y, --tilt-scale
 // Style the rotate3d/scale however you want in CSS.
-export { initCardTilt } from './cardTilt';
+export { initCardTilt } from './cardTilt.js';

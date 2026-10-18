@@ -1,8 +1,8 @@
-import type { IntervalDescriptor } from '../types';
-import { BaseControl, humanize } from './BaseControl';
-import { el } from '../dom';
-import { formatNumber } from '../format';
-import { attachScrub } from '../scrub';
+import type { IntervalDescriptor } from '../types.js';
+import { BaseControl, humanize } from './BaseControl.js';
+import { el } from '../dom.js';
+import { formatNumber } from '../format.js';
+import { attachScrub } from '../scrub.js';
 
 type Side = 0 | 1; // 0 = lo thumb, 1 = hi thumb
 

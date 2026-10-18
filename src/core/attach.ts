@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
-import { SceneManager } from './SceneManager';
-import type { Scene } from './types';
-import { detectQuality, type QualityProfile } from '../quality/quality';
+import { SceneManager } from './SceneManager.js';
+import type { Scene } from './types.js';
+import { detectQuality, type QualityProfile } from '../quality/quality.js';
 
 /**
  * Factory the caller supplies per route — receives the live

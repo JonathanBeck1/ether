@@ -574,7 +574,7 @@ npm run typecheck      # tsc over src + tests
 npm test               # vitest over the pure modules
 npm run test:e2e       # Playwright over a plain-Vite fixture: the persistent-canvas guarantees
 npm run build          # dist/: Vite ESM per module + tsc declarations + the npm package.json
-npm run test:dist      # consume the built .d.ts under skipLibCheck: false; import every entry in plain Node; npm pack --dry-run
+npm run test:dist      # consume the built .d.ts under nodenext and bundler resolution, strict flags, skipLibCheck: false; attw over the packed package; import every entry in plain Node; npm pack --dry-run
 npm run test:e2e:dist  # the e2e suite again, fixture aliased to dist/
 ```
 

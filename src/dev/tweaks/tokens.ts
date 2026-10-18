@@ -2,7 +2,7 @@
 // ROOT ONLY (never document.documentElement — no host leak), plus one scoped
 // <style> string whose every selector is prefixed with [data-kit-tweaks].
 
-import type { TweaksTheme } from './types';
+import type { TweaksTheme } from './types.js';
 
 const MONO = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 

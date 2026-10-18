@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { EffectComposer } from 'postprocessing';
-import type { Scene } from './types';
+import type { Scene } from './types.js';
 
 /**
  * Convenience base class implementing the {@link Scene} contract — handles
@@ -132,4 +132,4 @@ export abstract class BaseScene implements Scene {
 
 // Re-export Scene from types so consumers can `import { Scene } from
 // 'ether/core'` directly without reaching into ./types.
-export type { Scene } from './types';
+export type { Scene } from './types.js';

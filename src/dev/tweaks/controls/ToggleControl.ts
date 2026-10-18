@@ -1,6 +1,6 @@
-import type { ToggleDescriptor } from '../types';
-import { BaseControl } from './BaseControl';
-import { el } from '../dom';
+import type { ToggleDescriptor } from '../types.js';
+import { BaseControl } from './BaseControl.js';
+import { el } from '../dom.js';
 
 /**
  * Sliding pill toggle. A click is a discrete edit:

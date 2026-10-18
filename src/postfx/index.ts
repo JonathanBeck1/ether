@@ -15,8 +15,8 @@
 // Pass `multisampling: quality.msaaSamples` from `ether/quality` — the
 // composer's targets are where edge AA actually happens once a composer
 // runs.
-export { DitherEffect } from './DitherEffect';
-export { createComposer, type Composer, type ComposerOptions } from './composer';
+export { DitherEffect } from './DitherEffect.js';
+export { createComposer, type Composer, type ComposerOptions } from './composer.js';
 export {
   createHeroComposer,
   createNightComposer,
@@ -24,5 +24,5 @@ export {
   type BloomComposer,
   type NightComposerOptions,
   type PresetOptions,
-} from './heroComposer';
-export { loadLUT } from './lut';
+} from './heroComposer.js';
+export { loadLUT } from './lut.js';

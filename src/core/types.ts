@@ -1,6 +1,6 @@
 import type * as THREE from 'three';
 import type { EffectComposer } from 'postprocessing';
-import type { QualityProfile } from '../quality/quality';
+import type { QualityProfile } from '../quality/quality.js';
 
 /**
  * Shared TypeScript types for `ether/core`.

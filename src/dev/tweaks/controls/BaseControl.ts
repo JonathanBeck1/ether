@@ -1,6 +1,6 @@
-import type { BaseDescriptor, Control, ControlContext, TweakValue } from '../types';
-import { el } from '../dom';
-import { hexNormalize } from '../color';
+import type { BaseDescriptor, Control, ControlContext, TweakValue } from '../types.js';
+import { el } from '../dom.js';
+import { hexNormalize } from '../color.js';
 
 /**
  * Row scaffold + listener ledger + default capture + dirty/reset/destroy

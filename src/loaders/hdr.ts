@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
-import { tracked, type TrackOptions } from './progress';
+import { tracked, type TrackOptions } from './progress.js';
 
 export interface LoadHDROptions extends TrackOptions {
   /** Pass the renderer to also prefilter a PMREM environment map — the

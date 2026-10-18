@@ -1,5 +1,5 @@
-import type { TweakValue } from './types';
-import { hexNormalize } from './color';
+import type { TweakValue } from './types.js';
+import { hexNormalize } from './color.js';
 
 const UNDO_DEPTH = 50;
 

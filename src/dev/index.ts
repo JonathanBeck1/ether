@@ -3,8 +3,8 @@
 // Import lazily and gate behind a URL param so the cost only lands
 // when explicitly requested. Safe to ship in production builds —
 // the overlay does nothing until mounted.
-export { Stats } from './Stats';
-export { Tweaks } from './tweaks';
+export { Stats } from './Stats.js';
+export { Tweaks } from './tweaks/index.js';
 export type {
   TweaksConfig,
   TweaksTheme,
@@ -24,4 +24,4 @@ export type {
   VectorDescriptor,
   MonitorInput,
   DiffMap,
-} from './tweaks';
+} from './tweaks/index.js';
