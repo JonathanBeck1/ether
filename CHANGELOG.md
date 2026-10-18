@@ -6,6 +6,17 @@ Notable changes to ether. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `ether/core`: `BaseScene.track()` also takes anything with `kill()`
+  (GSAP tweens, timelines, ScrollTriggers), `destroy()` (`ScrollBridge`,
+  Lenis), `disconnect()` (Resize, Intersection and Mutation observers) or
+  `revert()`, or a plain teardown function, and still returns its argument
+  with its own type. A `gsap.context` or `gsap.matchMedia` is killed too,
+  which skips the cleanup functions its callbacks return; track
+  `() => ctx.revert()` to run them. `BaseScene.listen(target, type,
+  handler, options?)` adds an event listener and tracks its removal.
+
 ### Changed
 
 - The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
@@ -16,6 +27,12 @@ Notable changes to ether. The format follows
   with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
   hole-by-nesting in r185, so it no longer logs a deprecation warning per
   glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
+- `ether/core`: `BaseScene.dispose()` tears down tracked values newest
+  first instead of oldest first. A teardown that throws no longer stops
+  the rest: the remaining teardowns and the composer still run, then
+  `dispose()` rethrows the error, or an `AggregateError` when several
+  threw. The hop still fails and counts in the manager's `failures` and
+  `lastError`. A second `dispose()` runs no teardown twice.
 
 ## [1.2.0] — 2026-10-04
 

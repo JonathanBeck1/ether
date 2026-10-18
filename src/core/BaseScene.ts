@@ -24,6 +24,24 @@ export interface BaseSceneOptions {
   cameraZ?: number;
 }
 
+/** What `track()` accepts; `dispose()` calls the first teardown method the value has. */
+export type Trackable =
+  | { dispose(): void }
+  | { kill(): void }
+  | { destroy(): void }
+  | { disconnect(): void }
+  | { revert(): void }
+  | (() => void);
+
+function toDisposable(d: Trackable): { dispose(): void } {
+  if (typeof d === 'function') return { dispose: d };
+  if ('dispose' in d) return d;
+  if ('kill' in d) return { dispose: () => d.kill() };
+  if ('destroy' in d) return { dispose: () => d.destroy() };
+  if ('disconnect' in d) return { dispose: () => d.disconnect() };
+  return { dispose: () => d.revert() };
+}
+
 export abstract class BaseScene implements Scene {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -47,10 +65,45 @@ export abstract class BaseScene implements Scene {
     this.camera.position.set(0, 0, cameraZ);
   }
 
-  /** Register a disposable for automatic cleanup in `dispose()`. */
-  protected track<T extends { dispose(): void }>(d: T): T {
-    this.disposables.push(d);
+  /** Register a resource, tween, trigger, observer or teardown function for `dispose()`. */
+  protected track<T extends Trackable>(d: T): T {
+    this.disposables.push(toDisposable(d));
     return d;
+  }
+
+  /** Add an event listener that `dispose()` removes. */
+  protected listen<K extends keyof WindowEventMap>(
+    target: Window,
+    type: K,
+    handler: (event: WindowEventMap[K]) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  protected listen<K extends keyof DocumentEventMap>(
+    target: Document,
+    type: K,
+    handler: (event: DocumentEventMap[K]) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  protected listen<K extends keyof HTMLElementEventMap>(
+    target: HTMLElement,
+    type: K,
+    handler: (event: HTMLElementEventMap[K]) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  protected listen(
+    target: EventTarget,
+    type: string,
+    handler: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  protected listen(
+    target: EventTarget,
+    type: string,
+    handler: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    target.addEventListener(type, handler, options);
+    this.track(() => target.removeEventListener(type, handler, options));
   }
 
   async preload(): Promise<void> { /* override */ }
@@ -59,10 +112,21 @@ export abstract class BaseScene implements Scene {
   abstract exitTransition(): Promise<void>;
   abstract tick(time: number, deltaTime: number): void;
 
+  /** Tears down tracked values newest first, then the composer; rethrows teardown errors afterwards. Safe to call twice. */
   dispose(): void {
-    for (const d of this.disposables) d.dispose();
+    const disposables = this.disposables;
     this.disposables = [];
+    const errors: unknown[] = [];
+    for (let i = disposables.length - 1; i >= 0; i--) {
+      try {
+        disposables[i].dispose();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
     this.composer?.dispose();
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, `${errors.length} teardowns threw`);
   }
 }
 

@@ -366,22 +366,38 @@ failure is counted in the diagnostics.
 ### Disposal
 
 On a hop the manager calls the outgoing scene's `dispose()` and nothing
-else; it never walks your scene graph. `BaseScene.dispose()` disposes
-everything passed to `this.track()` (geometries, materials, textures,
-render targets, anything with a `dispose()`), then `this.composer`.
-Everything else the scene started is yours to stop. Override
-`dispose()`, release it, and call `super.dispose()`:
+else; it never walks your scene graph. `BaseScene.dispose()` tears down
+everything passed to `this.track()`, newest first, then `this.composer`.
+`track()` returns its argument and calls the first of these it has:
+`dispose()` (geometries, materials, textures, render targets), `kill()`
+(GSAP tweens, timelines, ScrollTriggers), `destroy()` (the
+`ScrollBridge`, Lenis), `disconnect()` (Resize, Intersection and Mutation
+observers) or `revert()`; a function is called as is.
+`this.listen(target, type, handler, options?)` adds a listener and tracks
+its removal. A teardown that throws does not stop the rest: they still
+run, the composer is still disposed, and then `dispose()` rethrows it (an
+`AggregateError` when several threw), so the hop fails and is counted in
+the diagnostics as before. A second `dispose()` is safe and runs no
+tracked teardown twice.
 
-- DOM and window listeners;
-- GSAP tweens and timelines, the intro included: enter is not awaited,
-  so its timeline can outlive the scene;
-- ScrollTriggers. Kill them in `exitTransition()`, before its first
-  `await`, so they let go before the DOM swap;
-- the `ScrollBridge`. `destroy()` it in exit or dispose, and build it at
-  the start of `enterTransition()`, never in the constructor: Lenis takes
-  wheel input from construction but only moves the page once `tick`
-  pumps its `raf`, so a constructor-built bridge swallows scrolling for
-  the whole of `preload()`.
+```ts
+this.listen(window, 'pointermove', (e) => this.onPointer(e));
+this.track(gsap.timeline().to(this.material.uniforms.uReveal, { value: 1 }));
+this.track(new ResizeObserver(() => this.onElementResize())).observe(el);
+this.track(() => cancelAnimationFrame(this.raf));
+```
+
+Timing is still yours. The intro timeline needs tracking because enter
+is not awaited, so it can outlive the scene. ScrollTriggers still need
+killing in `exitTransition()`, before its first `await`, so they let go
+before the DOM swap; `dispose()` comes too late for that. Build the
+`ScrollBridge` at the start of `enterTransition()`, never in the
+constructor: Lenis takes wheel input from construction but only moves the
+page once `tick` pumps its `raf`, so a constructor-built bridge swallows
+scrolling for the whole of `preload()`. A `gsap.context` or
+`gsap.matchMedia` is killed, not reverted, which skips the cleanup
+functions its callbacks return and leaves inline styles in place; track
+`() => ctx.revert()` instead.
 
 The renderer and GL context outlive every scene. `attachment.detach()`
 (the vanilla router's `destroy()`) disposes the live scene and the

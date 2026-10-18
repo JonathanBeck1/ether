@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as THREE from 'three';
 import { SceneManager } from '../src/core/SceneManager';
+import { BaseScene } from '../src/core/BaseScene';
 import type { RuntimeDiagnostics, Scene } from '../src/core/types';
 import type { QualityProfile } from '../src/quality/quality';
 
@@ -9,6 +10,12 @@ import type { QualityProfile } from '../src/quality/quality';
 vi.mock('three', () => ({
   SRGBColorSpace: 'srgb',
   NoToneMapping: 0,
+  Scene: class {},
+  PerspectiveCamera: class {
+    aspect = 0;
+    position = { set() {} };
+    updateProjectionMatrix(): void {}
+  },
   WebGLRenderer: class {
     readonly domElement: unknown;
     outputColorSpace = '';
@@ -128,6 +135,16 @@ class FakeScene implements Scene {
     this.options.tick?.();
   }
   dispose(): void {}
+}
+
+class TrackingScene extends BaseScene {
+  constructor(teardowns: (() => void)[]) {
+    super();
+    for (const teardown of teardowns) this.track(teardown);
+  }
+  async enterTransition(): Promise<void> {}
+  async exitTransition(): Promise<void> {}
+  tick(): void {}
 }
 
 const PASSES = [
@@ -348,6 +365,25 @@ describe('SceneManager.getDiagnostics', () => {
 
     await manager.transitionTo('/unrouted');
     expect(diag(manager).scene).toMatchObject({ failures: 2, route: '/a', id: d.scene.id, phase: 'active' });
+  });
+
+  it("counts a throwing tracked teardown in the outgoing scene as a hop failure", async () => {
+    const { manager } = createManager();
+    const cleanup = vi.fn();
+    const buildB = vi.fn(() => new FakeScene());
+    manager.registerScene('/a', () => new TrackingScene([cleanup, () => { throw new Error('teardown failed'); }]));
+    manager.registerScene('/b', buildB);
+    await manager.transitionTo('/a');
+    await manager.transitionTo('/b');
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(buildB).not.toHaveBeenCalled();
+    expect(diag(manager).scene).toMatchObject({
+      failures: 1,
+      lastError: '/b: teardown failed',
+      phase: 'empty',
+      route: null,
+      id: null,
+    });
   });
 
   it("does not let an interrupted intro flag the next scene as entered", async () => {
