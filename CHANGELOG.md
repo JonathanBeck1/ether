@@ -45,6 +45,27 @@ Notable changes to ether. The format follows
   with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
   hole-by-nesting in r185, so it no longer logs a deprecation warning per
   glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
+- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
+  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
+  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
+  below 0.184.
+- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
+  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
+  hole-by-nesting in r185, so it no longer logs a deprecation warning per
+  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
+- `ether/core`: a hop that a navigation to a different registered route
+  (or any route, when `'*'` is registered) overtakes is abandoned
+  instead of finishing. When the newer route is already queued as the
+  outgoing scene finishes exiting, the overtaken route's factory never
+  runs; when it arrives during `preload()`, the scene built for the
+  overtaken route is disposed without activating or entering.
+  Intermediate routes in a rapid navigation burst no longer build or go
+  live, and `getDiagnostics().scene.route` reads null from the abandoned
+  hop until the next scene activates. A preloaded scene that implements
+  `retarget()` still activates when the newer route resolves to the
+  same factory, and is retargeted instead of rebuilt. A queued
+  navigation to the same route, forced or not, still lets the hop
+  finish, and a forced one still rebuilds after it.
 
 ### Fixed
 

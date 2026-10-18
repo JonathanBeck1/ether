@@ -79,8 +79,9 @@ export interface RuntimeDiagnostics {
     phase: 'empty' | 'exiting' | 'loading' | 'active' | 'destroyed';
     /**
      * The manager's current normalized pathname (the real path, also for '*'
-     * matches). Still the departed route while exiting/loading; null before
-     * the first hop and after a failed one.
+     * matches). Still the departed route while exiting/loading, but null
+     * while loading after an overtaken hop; also null before the first hop
+     * and after a failed one.
      */
     route: string | null;
     /** route resolved to the '*' factory, not an exact registration. */

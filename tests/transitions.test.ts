@@ -59,6 +59,7 @@ class FakeScene implements Scene {
     updateProjectionMatrix() {},
   } as unknown as THREE.PerspectiveCamera;
   disposed = 0;
+  entered = 0;
   resizes: Array<[number, number]> = [];
   composerSizes: unknown[][] = [];
   readonly composer = {
@@ -73,7 +74,9 @@ class FakeScene implements Scene {
   async preload(): Promise<void> {
     await this.hooks.preload?.();
   }
-  async enterTransition(): Promise<void> {}
+  async enterTransition(): Promise<void> {
+    this.entered++;
+  }
   async exitTransition(): Promise<void> {
     await this.hooks.exit?.();
   }
@@ -99,6 +102,14 @@ function createManager() {
 }
 
 const activeName = (manager: SceneManager) => (manager.activeScene as FakeScene | null)?.name ?? null;
+
+function latch() {
+  let open!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { gate, open };
+}
 
 describe('SceneManager transitions', () => {
   let errors: unknown[][] = [];
@@ -189,6 +200,145 @@ describe('SceneManager transitions', () => {
     expect(b.resizes.at(-1)).toEqual([800, 800]);
     // updateStyle false — the engine never writes inline canvas styles.
     expect(b.composerSizes.at(-1)).toEqual([800, 800, false]);
+  });
+
+  it('skips building a hop overtaken during the exit, even back to the departed route', async () => {
+    const { manager } = createManager();
+    const exit = latch();
+    const scenes: FakeScene[] = [];
+    manager.registerScene('/a', () => {
+      const a = new FakeScene('A', { exit: () => exit.gate });
+      scenes.push(a);
+      return a;
+    });
+    const buildB = vi.fn(() => new FakeScene('B'));
+    manager.registerScene('/b', buildB);
+
+    await manager.transitionTo('/a');
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // A is parked in exitTransition()
+    void manager.transitionTo('/a');
+    exit.open();
+    await hop;
+
+    expect(buildB).not.toHaveBeenCalled();
+    expect(scenes.map((a) => a.disposed)).toEqual([1, 0]);
+    expect(manager.activeScene).toBe(scenes[1]);
+    await manager.transitionTo('/a'); // the route settled on /a, so this is a no-op
+    expect(scenes).toHaveLength(2);
+  });
+
+  it('disposes a scene overtaken during preload() without activating it', async () => {
+    const { manager } = createManager();
+    const preload = latch();
+    const a = new FakeScene('A');
+    const b = new FakeScene('B', { preload: () => preload.gate });
+    const c = new FakeScene('C');
+    manager.registerScene('/a', () => a);
+    manager.registerScene('/b', () => b);
+    manager.registerScene('/c', () => c);
+
+    await manager.transitionTo('/a');
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // B is constructed and parked in preload()
+    void manager.transitionTo('/c');
+    preload.open();
+    await hop;
+
+    expect(b.disposed).toBe(1);
+    expect(b.entered).toBe(0);
+    expect(activeName(manager)).toBe('C');
+    expect(c.entered).toBe(1);
+  });
+
+  it('still rebuilds when a forced same-route navigation lands mid-hop', async () => {
+    const { manager } = createManager();
+    const preload = latch();
+    const built: FakeScene[] = [];
+    manager.registerScene('/a', () => new FakeScene('A'));
+    manager.registerScene('/b', () => {
+      const b = new FakeScene('B', built.length === 0 ? { preload: () => preload.gate } : {});
+      built.push(b);
+      return b;
+    });
+
+    await manager.transitionTo('/a');
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // the first B is parked in preload()
+    void manager.transitionTo('/b', { force: true });
+    preload.open();
+    await hop;
+
+    expect(built).toHaveLength(2);
+    expect(built[0].entered).toBe(1);
+    expect(built[0].disposed).toBe(1);
+    expect(manager.activeScene).toBe(built[1]);
+    expect(built[1].disposed).toBe(0);
+  });
+
+  it('lets a hop finish when an unforced same-route navigation lands mid-preload', async () => {
+    const { manager } = createManager();
+    const preload = latch();
+    const buildB = vi.fn(() => new FakeScene('B', { preload: () => preload.gate }));
+    manager.registerScene('/a', () => new FakeScene('A'));
+    manager.registerScene('/b', buildB);
+
+    await manager.transitionTo('/a');
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // B is parked in preload()
+    void manager.transitionTo('/b');
+    preload.open();
+    await hop;
+
+    expect(buildB).toHaveBeenCalledTimes(1);
+    expect(activeName(manager)).toBe('B');
+  });
+
+  it('activates and retargets a shared-factory scene overtaken mid-preload', async () => {
+    const { manager } = createManager();
+    const preload = latch();
+    const built: Array<FakeScene & { retargets: string[] }> = [];
+    const world = () => {
+      const w = Object.assign(new FakeScene('W', { preload: () => preload.gate }), {
+        retargets: [] as string[],
+        retarget(route: string) {
+          w.retargets.push(route);
+        },
+      });
+      built.push(w);
+      return w;
+    };
+    manager.registerScene('/park', () => new FakeScene('P'));
+    manager.registerScene('/work', world);
+    manager.registerScene('/contact', world);
+
+    await manager.transitionTo('/park');
+    const hop = manager.transitionTo('/work');
+    await sleep(10); // W is parked in preload()
+    void manager.transitionTo('/contact');
+    preload.open();
+    await hop;
+
+    expect(built).toHaveLength(1);
+    expect(built[0].disposed).toBe(0);
+    expect(built[0].retargets).toEqual(['/contact']);
+    expect(manager.activeScene).toBe(built[0]);
+  });
+
+  it('keeps the overtaken scene when the newer route has no scene and no fallback', async () => {
+    const { manager } = createManager();
+    const exit = latch();
+    manager.registerScene('/a', () => new FakeScene('A', { exit: () => exit.gate }));
+    manager.registerScene('/b', () => new FakeScene('B'));
+
+    await manager.transitionTo('/a');
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // A is parked in exitTransition()
+    void manager.transitionTo('/missing');
+    exit.open();
+    await hop;
+
+    expect(activeName(manager)).toBe('B');
   });
 
   it('drains a route queued during a hop that throws', async () => {

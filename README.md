@@ -353,9 +353,15 @@ A hop runs in this order:
    settles on a new size, including once before `preload()`.
 
 Navigations that land during a hop are latest-wins: the queue settles on
-the last one. A same-route navigation is a no-op unless forced, and
-`ether/astro` forces every swap, because Astro replaces the body even on
-a same-path click and the live scene's triggers would hold dead nodes.
+the last one. A hop overtaken by a different route that resolves to a
+scene (its own or `'*'`) stops after the exit or after `preload()`,
+disposing any scene it built without activating it, so intermediate
+routes never go live.
+A preloaded scene that the newer route would retarget activates and is
+retargeted instead. A same-route navigation is a
+no-op unless forced, and `ether/astro` forces every swap, because Astro
+replaces the body even on a same-path click and the live scene's
+triggers would hold dead nodes.
 A scene that implements `retarget(route)` is kept alive, not rebuilt,
 across routes whose factory is the same function. `renders = false`
 keeps a scene ticking without drawing, for routes where opaque DOM

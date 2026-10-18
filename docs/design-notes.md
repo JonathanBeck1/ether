@@ -73,7 +73,9 @@ on detached nodes.
 [`src/core/SceneManager.ts`](../src/core/SceneManager.ts).
 Exit runs first so scene resource lifetimes are strictly disjoint. Enter
 is not awaited, so a navigation during a long intro interrupts it
-through `dispose`. Rapid A to B to A converges on the last route. A scene
+through `dispose`. Rapid A to B to A converges on the last route, and a
+hop already overtaken stops before it activates, so a route the user
+navigated past costs at most its construct and preload. A scene
 that implements `retarget` and resolves to the same factory stays alive
 across a route change and plays its own continuous transition; that is
 why the attach layer registers one wrapper per unique factory, so the

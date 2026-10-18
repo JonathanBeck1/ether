@@ -190,7 +190,10 @@ export class SceneManager {
    * the fresh DOM.
    *
    * Hop order: exit old → dispose old → construct + size next → preload →
-   * activate → enter. The exit runs FIRST so scene resource lifetimes
+   * activate → enter. A hop a newer route overtakes stops after the exit
+   * or after preload (disposing what it built) instead of activating,
+   * unless the built scene would retarget to that route.
+   * The exit runs FIRST so scene resource lifetimes
    * (Lenis bridge, ScrollTriggers, pointer listeners) are strictly
    * disjoint. Enter is NOT awaited by the queue: a navigation during a
    * long intro interrupts it via dispose
@@ -272,6 +275,10 @@ export class SceneManager {
         outgoing.dispose();
       }
       if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
+      if (this.superseded(routeName, factory)) {
+        this.currentRoute = null;
+        return;
+      }
       next = factory(this.renderer, routeName);
       // Sync the fresh scene to the canvas's CSS box before it renders.
       // BaseScene seeds camera.aspect from window.inner*, which diverges
@@ -285,6 +292,13 @@ export class SceneManager {
       if (w > 0 && h > 0) this.sizeScene(next, w, h);
       if (next.preload) await next.preload();
       if (this.destroyed) { next.dispose(); return; }
+      if (this.superseded(routeName, factory, next)) {
+        const stale = next;
+        next = null; // so the catch below cannot dispose it twice
+        this.currentRoute = null;
+        stale.dispose();
+        return;
+      }
       this._activeScene = next;
       this.sceneSerial++;
       this.entered = false;
@@ -317,6 +331,16 @@ export class SceneManager {
       held?.dispose();
       throw err;
     }
+  }
+
+  // A queued same route (forced or not), an unregistered one, or one the
+  // built scene would retarget to is left to the drain loop.
+  private superseded(routeName: string, factory: SceneFactory, built?: Scene): boolean {
+    const pending = this.pendingRoute;
+    if (pending === null || pending === routeName) return false;
+    const pendingFactory = this.scenes.get(pending) ?? this.scenes.get('*');
+    if (!pendingFactory) return false;
+    return !(built?.retarget && pendingFactory === factory);
   }
 
   /** Sync a scene to the canvas box: camera, composer targets, and the

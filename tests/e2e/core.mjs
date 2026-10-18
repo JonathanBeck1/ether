@@ -518,8 +518,9 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     );
 
     // 13. Latest wins: five rapid navigate() calls settle on the last
-    //     route, with one live scene, one loop, and every scene built on
-    //     the way there disposed.
+    //     route, with one live scene and one loop. The hop the burst
+    //     overtakes stops after the departed scene exits, so no scene is
+    //     built for an intermediate route.
     const rapidBase = guarded.scenes.length;
     await page.evaluate(() => {
       const { router } = window.__fixture;
@@ -535,10 +536,11 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
     );
     if (rapid) {
       const built = rapid.scenes.slice(rapidBase);
+      const departed = rapid.scenes[rapidBase - 1];
       const live = rapid.scenes.at(-1);
       check(
-        built.length === 2 && built[0].exited === 1 && built[0].disposed === 1,
-        `rapid: intermediate routes skipped, the scene built on the way disposed (built ${built.map((b) => b.name).join(',')})`,
+        built.length === 1 && departed.exited === 1 && departed.disposed === 1,
+        `rapid: intermediate routes never build, the departed scene is disposed (built ${built.map((b) => b.name).join(',')})`,
       );
       check(
         live.name === 'B' && live.entered === 1 && live.disposed === 0,
@@ -549,8 +551,8 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
         ticksRapid > 0 && ticksRapid <= 32,
         `rapid: still one render loop (${ticksRapid} ticks over 30 frames)`,
       );
-      const ticksStale = await ticksOver(rapidBase, 20);
-      check(ticksStale === 0, `rapid: the skipped-past scene is inert (${ticksStale} ticks over 20 frames)`);
+      const ticksStale = await ticksOver(rapidBase - 1, 20);
+      check(ticksStale === 0, `rapid: the departed scene is inert (${ticksStale} ticks over 20 frames)`);
     }
 
     // 14. navigate({ replace: true }) swaps the scene in place of the
