@@ -4,7 +4,19 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.3.0] — 2026-10-18
+
+The release where a scene cleans up after itself and a scene that throws
+no longer stops the render loop: `BaseScene.track()` takes GSAP tweens
+and triggers, Lenis, observers and plain teardown functions, and
+`BaseScene.listen()` tracks an event listener's removal. 1.3.0 supports
+three.js 0.184 through 0.186 and raises the `postprocessing` peer floor
+to `^6.39.1`, the first release that accepts three 0.184. Four behaviors
+change: a hop the user has already navigated past is abandoned instead
+of finishing; `dispose()` tears down newest first and runs every
+teardown before it rethrows; a faulted scene is halted, reported as
+`'faulted'`, while the loop and navigation keep running; and the `Stats`
+overlay reads `getDiagnostics()`.
 
 ### Added
 
@@ -37,22 +49,6 @@ Notable changes to ether. The format follows
   `dispose()` rethrows the error, or an `AggregateError` when several
   threw. The hop still fails and counts in the manager's `failures` and
   `lastError`. A second `dispose()` runs no teardown twice.
-- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
-  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
-  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
-  below 0.184.
-- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
-  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
-  hole-by-nesting in r185, so it no longer logs a deprecation warning per
-  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
-- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
-  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
-  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
-  below 0.184.
-- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
-  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
-  hole-by-nesting in r185, so it no longer logs a deprecation warning per
-  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
 - `ether/core`: a hop that a navigation to a different registered route
   (or any route, when `'*'` is registered) overtakes is abandoned
   instead of finishing. When the newer route is already queued as the
@@ -66,14 +62,6 @@ Notable changes to ether. The format follows
   same factory, and is retargeted instead of rebuilt. A queued
   navigation to the same route, forced or not, still lets the hop
   finish, and a forced one still rebuilds after it.
-- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
-  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
-  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
-  below 0.184.
-- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
-  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
-  hole-by-nesting in r185, so it no longer logs a deprecation warning per
-  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
 - `ether/dev`: `Stats` reads `manager.getDiagnostics()` instead of quality
   intent and its own frame counter. FPS is the manager loop's, the MS row
   is now CPU (main-thread ms per tick), FX lists the live composer's

@@ -74,7 +74,7 @@ versions come from the production site that consumes the kit, which is
 built, typechecked and smoke-tested on each CI run of the private
 monorepo this repository is mirrored from (see [Provenance](#provenance)).
 
-| | 1.0.0 | 1.1.0 and 1.2.0 | Unreleased | Tested |
+| | 1.0.0 | 1.1.0 and 1.2.0 | 1.3.0 | Tested |
 |---|---|---|---|---|
 | `three` | `^0.184.0` | `^0.184.0` | `>=0.184.0 <0.187.0` | 0.186.1 (kit), 0.184.0 (site; kit by hand, see below) |
 | `postprocessing` | `^6.39.0` | `^6.39.0` | `^6.39.1` | 6.39.5 (kit), 6.39.1 (site) |
@@ -544,8 +544,9 @@ every name in the module map, including the `ether/dev` descriptor
 types, `MonitorInput` and `DiffMap`, plus these members:
 `SceneManager`'s `renderer`, `quality`, `activeScene` and
 `getDiagnostics()`, and `Tweaks.setOverrideTeardown()`.
-`RuntimeDiagnostics` gains fields in minors; a removal, rename or change
-of meaning is a major.
+`RuntimeDiagnostics` gains fields, and members of its string unions such
+as `rendering.skipped`, in minors; a removal, rename or change of meaning
+is a major.
 
 Tooling, stable for 1.x: `attachSceneManager` and the routers built on it
 tag the canvas with `__sceneManager`, and remove the tag on detach (a
