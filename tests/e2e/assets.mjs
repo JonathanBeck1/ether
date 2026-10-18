@@ -147,9 +147,12 @@ export async function runAssetsSuite(baseUrl, launchOptions = {}) {
     // troika's worker leaves that failed fetch uncaught; it is troika's
     // error, not the kit's, so it is set aside rather than counted.
     pageErrors.push(...pageErrors.splice(errorsBefore).filter((m) => m !== 'Failed to fetch'));
+    // ms starts before the font preflight, and the timer only after it, so
+    // the floor is timeoutMs and the ceiling is the race: a hang, or the
+    // 10 s default in place of timeoutMs, still reads as timedOut.
     check(
-      uncovered.rejected && !uncovered.timedOut && uncovered.ms < GLYPH_TIMEOUT_MS + 1_000,
-      `text: msdfText rejects at timeoutMs ${GLYPH_TIMEOUT_MS} when the unicode fallback CDN is unreachable, in ${Math.round(uncovered.ms ?? FAST_BUDGET_MS)}ms (budget ${GLYPH_TIMEOUT_MS + 1_000}ms)`,
+      uncovered.rejected && !uncovered.timedOut && uncovered.ms >= GLYPH_TIMEOUT_MS,
+      `text: msdfText rejects at timeoutMs ${GLYPH_TIMEOUT_MS} when the unicode fallback CDN is unreachable, in ${Math.round(uncovered.ms ?? FAST_BUDGET_MS)}ms (window ${GLYPH_TIMEOUT_MS}-${FAST_BUDGET_MS}ms)`,
     );
     check(
       cdnBlocked > 0 &&
