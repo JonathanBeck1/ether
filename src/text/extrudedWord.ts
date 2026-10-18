@@ -47,6 +47,12 @@ export interface ExtrudedWordOptions {
   extrude?: ExtrudeProfile;
 }
 
+// r185 moved createShapes' hole-by-nesting into toShapes(), which before then went by winding.
+const toShapes: (path: THREE.ShapePath) => THREE.Shape[] =
+  Number(THREE.REVISION) >= 185
+    ? (path) => (path.toShapes as () => THREE.Shape[]).call(path)
+    : SVGLoader.createShapes;
+
 const DEFAULT_EXTRUDE: Required<ExtrudeProfile> = {
   depth: 16,
   bevelEnabled: true,
@@ -143,7 +149,7 @@ export async function extrudedWord(
     const shapes: THREE.Shape[] = [];
     // Holes by nesting, not absolute winding: TrueType and CFF fonts wind
     // their contours in opposite directions.
-    for (const sp of svgData.paths) shapes.push(...SVGLoader.createShapes(sp));
+    for (const sp of svgData.paths) shapes.push(...toShapes(sp));
 
     if (shapes.length === 0) {
       // Glyph produced no path (e.g. space). Advance the cursor anyway

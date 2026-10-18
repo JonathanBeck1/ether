@@ -4,6 +4,19 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
+  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
+  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
+  below 0.184.
+- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
+  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
+  hole-by-nesting in r185, so it no longer logs a deprecation warning per
+  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
+
 ## [1.2.0] — 2026-10-04
 
 The release where the engine reports what it is actually doing:

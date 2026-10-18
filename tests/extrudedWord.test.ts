@@ -1,10 +1,7 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { DOMParser } from '@xmldom/xmldom';
 import * as opentype from 'opentype.js';
 import { extrudedWord } from '../src/text/extrudedWord';
-
-// SVGLoader parses through the DOM; node has no DOMParser of its own.
-(globalThis as unknown as { DOMParser: typeof DOMParser }).DOMParser = DOMParser;
 
 /** A one-glyph font whose glyph is a square with a square hole. TrueType
  *  contour order winds the outer clockwise and the hole counter-clockwise

@@ -137,7 +137,7 @@ export async function runAssetsSuite(baseUrl, launchOptions = {}) {
       `text: msdfText rejects an HTML page served as the font in ${Math.round(page200.ms ?? FAST_BUDGET_MS)}ms (budget ${FAST_BUDGET_MS}ms) — "${page200.message}"`,
     );
     const fontUrl = await page.evaluate(() => window.__fixture.fontUrl);
-    // kenpixel has no euro sign, so troika asks the blocked CDN for one.
+    // The fixture font has no euro sign, so troika asks the blocked CDN for one.
     const errorsBefore = pageErrors.length;
     const uncovered = await within(
       'missingFontProbe',

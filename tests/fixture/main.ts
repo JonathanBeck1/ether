@@ -3,7 +3,7 @@
 // pixels (headless GL makes pixel assertions flaky).
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
-import fontUrl from 'three/examples/fonts/ttf/kenpixel.ttf?url';
+import * as opentype from 'opentype.js';
 import { attachSceneManager, BaseScene } from 'ether/core';
 import { Tweaks } from 'ether/dev';
 import { initCardTilt } from 'ether/interactions';
@@ -13,6 +13,35 @@ import { ShaderQuad } from 'ether/primitives';
 import type { QualityProfile } from 'ether/quality';
 import { msdfText } from 'ether/text/msdf';
 import { initSceneRouter, type SceneRoutes, type VanillaRouter } from 'ether/vanilla';
+
+// Box glyphs for the probes' characters except the euro sign; generated so
+// the repository ships no font file.
+function boxFontUrl(): string {
+  const box = new opentype.Path();
+  box.moveTo(100, 0);
+  box.lineTo(500, 0);
+  box.lineTo(500, 700);
+  box.lineTo(100, 700);
+  box.close();
+  const glyphs = [
+    new opentype.Glyph({ name: '.notdef', advanceWidth: 600, path: new opentype.Path() }),
+  ];
+  for (const char of ' ACEFHRT02') {
+    const unicode = char.charCodeAt(0);
+    const path = char === ' ' ? new opentype.Path() : box;
+    glyphs.push(new opentype.Glyph({ name: `u${unicode}`, unicode, advanceWidth: 600, path }));
+  }
+  const font = new opentype.Font({
+    familyName: 'Fixture',
+    styleName: 'Regular',
+    unitsPerEm: 1000,
+    ascender: 800,
+    descender: -200,
+    glyphs,
+  });
+  return URL.createObjectURL(new Blob([font.toArrayBuffer()], { type: 'font/otf' }));
+}
+const fontUrl = boxFontUrl();
 
 // Forced profile: the suite asserts against MID, and the engine must not
 // probe the GPU under test — headless GL classifies unpredictably.

@@ -74,18 +74,23 @@ versions come from the production site that consumes the kit, which is
 built, typechecked and smoke-tested on each CI run of the private
 monorepo this repository is mirrored from (see [Provenance](#provenance)).
 
-| | 1.0.0 | 1.1.0 and 1.2.0 | Tested |
-|---|---|---|---|
-| `three` | `^0.184.0` | `^0.184.0` | 0.184.0 |
-| `postprocessing` | `^6.39.0` | `^6.39.0` | 6.39.4 (kit), 6.39.1 (site) |
-| `detect-gpu` | `^5.0.0` (optional) | `^5.0.0` | 5.0.70 |
-| `gsap` (optional) | `^3.15.0` | `^3.15.0` | 3.15.0 |
-| `lenis` (optional) | `^1.3.0` | `^1.3.0` | 1.3.26 (kit), 1.3.23 (site) |
-| `opentype.js` (optional) | `^1.3.0` | `^1.3.0` | 1.3.4 |
-| `troika-three-text` (optional) | `^0.52.0` | `^0.52.0` | 0.52.5 (kit only) |
-| Node | `>=22.12.0` | `>=24.0.0` | 24 |
-| Vite | not declared | not declared | 8.2.2 (kit fixture), 7.3.2 (site, via Astro) |
-| Astro | not declared | not declared | 6.1.10 (site) |
+| | 1.0.0 | 1.1.0 and 1.2.0 | Unreleased | Tested |
+|---|---|---|---|---|
+| `three` | `^0.184.0` | `^0.184.0` | `>=0.184.0 <0.187.0` | 0.186.1 (kit), 0.184.0 (site; kit by hand, see below) |
+| `postprocessing` | `^6.39.0` | `^6.39.0` | `^6.39.1` | 6.39.5 (kit), 6.39.1 (site) |
+| `detect-gpu` | `^5.0.0` (optional) | `^5.0.0` | `^5.0.0` | 5.0.70 |
+| `gsap` (optional) | `^3.15.0` | `^3.15.0` | `^3.15.0` | 3.15.0 |
+| `lenis` (optional) | `^1.3.0` | `^1.3.0` | `^1.3.0` | 1.3.26 (kit), 1.3.23 (site) |
+| `opentype.js` (optional) | `^1.3.0` | `^1.3.0` | `^1.3.0` | 1.3.4 |
+| `troika-three-text` (optional) | `^0.52.0` | `^0.52.0` | `^0.52.0` | 0.52.5 (kit only) |
+| Node | `>=22.12.0` | `>=24.0.0` | `>=24.0.0` | 24 |
+| Vite | not declared | not declared | not declared | 8.2.2 (kit fixture), 7.3.2 (site, via Astro) |
+| Astro | not declared | not declared | not declared | 6.1.10 (site) |
+
+The kit's lockfile pins three 0.186.1. 0.184.0, the site's version, was
+also run by hand against the kit's sources (typecheck, unit and e2e).
+postprocessing caps `three` on its own: three 0.184 needs postprocessing
+6.39.1 or later, 0.185 needs 6.39.2, 0.186 needs 6.39.5.
 
 1.1.0 made `detect-gpu` required and raised the Node floor to 24. Node
 only runs the toolchain (install, build, tests); the engine itself runs
@@ -98,12 +103,12 @@ Straight from git — raw `.ts`, which the rest of this README uses under
 the package name `ether`:
 
 ```bash
-npm i github:JonathanBeck1/ether three@0.184 postprocessing detect-gpu
+npm i github:JonathanBeck1/ether three@0.186 postprocessing detect-gpu
 ```
 
-Pin `three`: npm otherwise resolves the newest release, which is outside
-the `^0.184` peer range, and every `npm i` after that fails with
-`ERESOLVE`.
+Pin `three`: npm otherwise resolves the newest release, which falls
+outside the `>=0.184.0 <0.187.0` peer range once three moves past 0.186,
+and every `npm i` after that fails with `ERESOLVE`.
 
 Or as a sibling folder — the fastest inner loop (Vite watches and HMRs
 kit edits like first-party code):
@@ -117,7 +122,7 @@ The npm package — built ESM + types, imported from
 produces it; the install will be:
 
 ```bash
-npm i @jonathanbeck1/ether three@0.184 postprocessing detect-gpu
+npm i @jonathanbeck1/ether three@0.186 postprocessing detect-gpu
 ```
 
 ```ts

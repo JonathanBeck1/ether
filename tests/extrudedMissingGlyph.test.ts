@@ -1,10 +1,7 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { DOMParser } from '@xmldom/xmldom';
 import * as opentype from 'opentype.js';
 import { extrudedWord } from '../src/text/extrudedWord';
-
-// SVGLoader parses through the DOM; node has no DOMParser of its own.
-(globalThis as unknown as { DOMParser: typeof DOMParser }).DOMParser = DOMParser;
 
 const box = (x0: number, y0: number, x1: number, y1: number) => {
   const path = new opentype.Path();
