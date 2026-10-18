@@ -793,7 +793,56 @@ export async function runCoreSuite(baseUrl, launchOptions = {}) {
       `diagnostics: ${diagReads} snapshots JSON-safe${unsafeReads.length ? `; unsafe: ${unsafeReads.join(', ')}` : ''}`,
     );
 
-    // 22. Console policy.
+    // 22. A longer rotation over three factories: memory flat per route,
+    //     one scene built and one live per hop, the loop advancing after each settle.
+    const rotation = await page.evaluate(async () => {
+      const raf = () => new Promise((r) => requestAnimationFrame(r));
+      const { router, scenes } = window.__fixture;
+      const m = document.getElementById('scene-canvas').__sceneManager;
+      const visit = async (route) => {
+        const built = scenes.length;
+        await router.navigate(route);
+        for (let i = 0; i < 600; i++) {
+          const d = m.getDiagnostics();
+          if (d.scene.phase === 'active' && d.scene.entered && d.scene.route === route) break;
+          await raf();
+        }
+        const frames = m.getDiagnostics().performance.frames;
+        for (let i = 0; i < 5; i++) await raf();
+        const d = m.getDiagnostics();
+        const { geometries, textures, programs } = d.rendering;
+        return {
+          route,
+          at: d.scene.route,
+          phase: d.scene.phase,
+          memory: [geometries, textures, programs],
+          built: scenes.length - built,
+          live: scenes.filter((s) => s.counters.disposed === 0).length,
+          advanced: d.performance.frames - frames,
+        };
+      };
+      const visits = [];
+      for (let i = 0; i < 10; i++) visits.push(await visit('/b'), await visit('/c1'), await visit('/'));
+      return visits;
+    });
+    const firstRotation = {};
+    const rotationDrift = rotation.filter((v) => {
+      firstRotation[v.route] ??= JSON.stringify(v.memory);
+      return (
+        v.at !== v.route ||
+        v.phase !== 'active' ||
+        JSON.stringify(v.memory) !== firstRotation[v.route] ||
+        v.built !== 1 ||
+        v.live !== 1 ||
+        v.advanced <= 0
+      );
+    });
+    check(
+      rotation.length === 30 && rotationDrift.length === 0,
+      `rotation: ${rotation.length} hops over /b, /c1, / keep memory, scene count and the loop flat (/b ${firstRotation['/b']}, /c1 ${firstRotation['/c1']}, / ${firstRotation['/']}${rotationDrift.length ? `; drift ${JSON.stringify(rotationDrift)}` : ''})`,
+    );
+
+    // 23. Console policy.
     const unexpectedWarnings = consoleWarnings.filter(
       (w) => !WARNING_ALLOWLIST.some((re) => re.test(w)),
     );
