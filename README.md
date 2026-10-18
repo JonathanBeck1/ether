@@ -361,7 +361,11 @@ across routes whose factory is the same function. `renders = false`
 keeps a scene ticking without drawing, for routes where opaque DOM
 covers the canvas. A hop that throws disposes whichever scene it holds and
 forgets the route, so navigating back to one that worked still works; the
-failure is counted in the diagnostics.
+failure is counted in the diagnostics. A scene whose `tick` or render
+throws is halted: the loop stops ticking and drawing it, logs the error
+once and keeps running, so the next navigation replaces it as usual,
+rebuilding it even where it would retarget. Its scroll bridge stops with
+it, so a page scrolled by Lenis does not scroll until then.
 
 ### Disposal
 
@@ -468,6 +472,10 @@ itself.
   of them, shadow maps included. `textures` include composer render
   targets, so baseline leak checks per scene across repeated hops, not
   against zero.
+- `skipped: 'faulted'` means the live scene's `tick` or render threw and
+  is halted until a navigation replaces it; the throw is counted in
+  `scene.failures`, and `scene.lastError` reads `"<route>: tick: <message>"`
+  or `"<route>: render: <message>"`.
 - Under software GL (headless CI), assert bounds, never thresholds:
   `fps` finite and > 0, `cpuMs` finite and >= 0 (it is coarse and can
   read 0). Read them at least 600 ms after settling: both are null until

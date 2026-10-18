@@ -442,9 +442,21 @@ const C = flat('C', '#60ff30', false, true);
 const boom = (): FlatScene => {
   throw new Error('fixture: scene factory failed');
 };
+// Builds and goes live, then throws on its first tick.
+class FaultScene extends FlatScene {
+  tick(time: number): void {
+    super.tick(time);
+    throw new Error('fixture: scene tick failed');
+  }
+}
+const fault = (renderer: THREE.WebGLRenderer, quality: QualityProfile) => {
+  const scene = new FaultScene(renderer, quality, 'F', '#ff3060', false);
+  scenes.push(scene);
+  return scene;
+};
 
 const boot = (
-  routes: SceneRoutes = { '/': A, '/b': B, '/c1': C, '/c2': C, '/boom': boom, '*': B },
+  routes: SceneRoutes = { '/': A, '/b': B, '/c1': C, '/c2': C, '/boom': boom, '/fault': fault, '*': B },
 ) => initSceneRouter(canvas, routes, { quality: QUALITY, interceptLinks: true });
 
 window.__fixture = {

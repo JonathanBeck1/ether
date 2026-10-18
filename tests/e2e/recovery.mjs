@@ -1,8 +1,9 @@
 // What the engine owes a consumer after something goes wrong: a boot that
 // failed can be retried, a canvas whose manager was destroyed can be
 // re-attached, a second boot displaces the first instead of handing back a
-// stale one, and an in-page #hash link still belongs to the browser. Same
-// fixture as core.mjs, read through `window.__fixture` counters.
+// stale one, an in-page #hash link still belongs to the browser, and a
+// scene that throws mid-frame halts itself, not the loop. Same fixture as
+// core.mjs, read through `window.__fixture` counters.
 import { chromium } from 'playwright';
 
 const READY_TIMEOUT_MS = 60_000;
@@ -200,6 +201,60 @@ export async function runRecoverySuite(baseUrl, launchOptions = {}) {
           () => false,
         );
       check(navigated, `external: rel="external" does a real navigation (marker dropped ${navigated})`);
+    }
+
+    // 6. A scene whose tick throws halts that scene, not the render loop:
+    //    the failure is counted and logged once, and the next route renders.
+    await goto('/');
+    if (await waitFor((s) => s.active === 'A', 'fault: boot')) {
+      const logged = [];
+      const onConsole = (msg) => {
+        if (msg.type() === 'error' && /tick failed for \/fault/.test(msg.text())) logged.push(msg.text());
+      };
+      page.on('console', onConsole);
+      await page.evaluate(() => window.__fixture.router.navigate('/fault'));
+      if (await waitFor((s) => s.active === 'F', 'fault: /fault live')) {
+        // Rendered frames and loop ticks over N frames, with the snapshot after.
+        const loopOver = (frames) =>
+          page.evaluate(async (frames) => {
+            const raf = () => new Promise((r) => requestAnimationFrame(r));
+            const m = document.getElementById('scene-canvas').__sceneManager;
+            await raf();
+            const loop0 = m.getDiagnostics().performance.frames;
+            const render0 = m.renderer.info.render.frame;
+            for (let i = 0; i < frames; i++) await raf();
+            const d = m.getDiagnostics();
+            return {
+              loop: d.performance.frames - loop0,
+              rendered: m.renderer.info.render.frame - render0,
+              skipped: d.rendering.skipped,
+              failures: d.scene.failures,
+              lastError: d.scene.lastError,
+              autoReset: m.renderer.info.autoReset,
+              faultTicks: window.__fixture.scenes.find((s) => s.name === 'F').counters.ticks,
+            };
+          }, frames);
+        const halted = await loopOver(20);
+        check(
+          halted.loop > 0 && halted.rendered === 0 && halted.skipped === 'faulted' && halted.faultTicks === 1,
+          `fault: the loop runs on with the scene halted (${halted.loop} loop ticks, ${halted.rendered} renders, skipped ${halted.skipped}, scene ticked ${halted.faultTicks})`,
+        );
+        check(
+          halted.failures === 1 && halted.lastError === '/fault: tick: fixture: scene tick failed' && halted.autoReset,
+          `fault: counted once with its stage (failures ${halted.failures}, lastError ${halted.lastError}, autoReset ${halted.autoReset})`,
+        );
+        check(logged.length === 1, `fault: logged once, not per frame (${logged.length} logged)`);
+        await page.evaluate(() => window.__fixture.router.navigate('/b'));
+        const onB = await waitFor((s) => s.active === 'B' && s.path === '/b', 'fault: navigation away');
+        if (onB) {
+          const next = await loopOver(20);
+          check(
+            next.rendered > 0 && next.skipped === null && next.failures === 1,
+            `fault: the next route renders (${next.rendered} renders over 20 frames, skipped ${next.skipped})`,
+          );
+        }
+      }
+      page.off('console', onConsole);
     }
   } catch (err) {
     fail(String(err?.message ?? err));

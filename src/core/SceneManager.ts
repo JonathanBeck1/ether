@@ -42,6 +42,7 @@ export class SceneManager {
   private sceneSerial = 0;
   private entered = false;
   private failures = 0;
+  private faultedSerial = 0;
   private lastError: string | null = null;
   private frames = 0;
   private windowStart = 0;
@@ -246,6 +247,7 @@ export class SceneManager {
     // home) full-swaps the DOM without changing routes, and its scene must
     // rebuild to re-couple — a kept scene would hold triggers on detached
     // nodes. Cross-route retarget owns its own re-coupling by contract.
+    // A halted (faulted) scene is rebuilt instead, so the next route renders.
     const currentFactory =
       this.currentRoute !== null
         ? this.scenes.get(this.currentRoute) ?? this.scenes.get('*')
@@ -254,7 +256,8 @@ export class SceneManager {
       this._activeScene &&
       routeName !== this.currentRoute &&
       factory === currentFactory &&
-      this._activeScene.retarget
+      this._activeScene.retarget &&
+      this.faultedSerial !== this.sceneSerial
     ) {
       this.currentRoute = routeName;
       this._activeScene.retarget(routeName);
@@ -351,35 +354,49 @@ export class SceneManager {
     const calls0 = info.render.calls;
     const triangles0 = info.render.triangles;
     let skipped: RuntimeDiagnostics['rendering']['skipped'] = 'no-scene';
+    let stage = 'tick';
 
-    if (this._activeScene) {
-      // Scene tick runs even while the context is lost: it's CPU-side math
-      // (drift lerps, uniform values) AND it pumps the scene's ScrollBridge
-      // raf. Skipping it froze Lenis-owned scrolling entirely on context
-      // loss — a lost context became an unscrollable page, not just a blank
-      // canvas. Only the GPU render calls are skipped (they'd no-op and
-      // spam console errors on a dead context).
-      this._activeScene.tick(now / 1000, deltaTime);
-      // domElement.width guard: a route swap can CSS-hide the canvas
-      // (e.g. /web parks it) while the OUTGOING scene's exit fade is
-      // still rendering — drawing into the zero-size framebuffer spams
-      // GL_INVALID_FRAMEBUFFER_OPERATION every frame of the fade.
-      skipped = this.contextLost
-        ? 'context-lost'
-        : this._activeScene.renders === false
-          ? 'renders-false'
-          : this.renderer.domElement.width === 0
-            ? 'zero-size'
-            : null;
-      if (skipped === null) {
-        if (this._activeScene.composer) {
-          this._activeScene.composer.render(deltaTime);
-        } else {
-          this.renderer.render(this._activeScene.scene, this._activeScene.camera);
+    try {
+      if (this._activeScene && this.faultedSerial === this.sceneSerial) {
+        skipped = 'faulted';
+      } else if (this._activeScene) {
+        // Scene tick runs even while the context is lost: it's CPU-side math
+        // (drift lerps, uniform values) AND it pumps the scene's ScrollBridge
+        // raf. Skipping it froze Lenis-owned scrolling entirely on context
+        // loss — a lost context became an unscrollable page, not just a blank
+        // canvas. Only the GPU render calls are skipped (they'd no-op and
+        // spam console errors on a dead context).
+        this._activeScene.tick(now / 1000, deltaTime);
+        // domElement.width guard: a route swap can CSS-hide the canvas
+        // (e.g. /web parks it) while the OUTGOING scene's exit fade is
+        // still rendering — drawing into the zero-size framebuffer spams
+        // GL_INVALID_FRAMEBUFFER_OPERATION every frame of the fade.
+        skipped = this.contextLost
+          ? 'context-lost'
+          : this._activeScene.renders === false
+            ? 'renders-false'
+            : this.renderer.domElement.width === 0
+              ? 'zero-size'
+              : null;
+        if (skipped === null) {
+          stage = 'render';
+          if (this._activeScene.composer) {
+            this._activeScene.composer.render(deltaTime);
+          } else {
+            this.renderer.render(this._activeScene.scene, this._activeScene.camera);
+          }
         }
       }
+    } catch (err) {
+      // Halt the scene, not the loop: navigation must still reach the next one.
+      this.faultedSerial = this.sceneSerial;
+      skipped = 'faulted';
+      this.failures++;
+      this.lastError = `${this.currentRoute}: ${stage}: ${err instanceof Error ? err.message : String(err)}`;
+      console.error(`[SceneManager] ${stage} failed for ${this.currentRoute}:`, err);
+    } finally {
+      info.autoReset = autoReset;
     }
-    info.autoReset = autoReset;
     this.skipped = skipped;
     this.renderCalls = info.render.frame - frame0;
     this.drawCalls = info.render.calls - calls0;

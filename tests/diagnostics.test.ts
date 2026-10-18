@@ -495,6 +495,87 @@ describe('SceneManager.getDiagnostics', () => {
     expect(d.performance.frames).toBe(3);
   });
 
+  it('halts a scene whose tick throws without stopping the loop', async () => {
+    const { manager } = createManager();
+    let ticks = 0;
+    manager.registerScene('/bad', (r) => new FakeScene({
+      composer: composer(r),
+      tick: () => {
+        ticks++;
+        throw new Error('tick failed');
+      },
+    }));
+    manager.registerScene('/good', (r) => new FakeScene({ composer: composer(r) }));
+    await manager.transitionTo('/bad');
+    manager.start();
+
+    frame(16);
+    let d = diag(manager);
+    expect(d.scene).toMatchObject({ phase: 'active', route: '/bad', failures: 1, lastError: '/bad: tick: tick failed' });
+    expect(d.rendering).toMatchObject({ skipped: 'faulted', renderCalls: 0 });
+    expect(manager.renderer.info.autoReset).toBe(true);
+    expect(nextFrame).not.toBeNull();
+
+    frame(32);
+    frame(48);
+    d = diag(manager);
+    expect(ticks).toBe(1);
+    expect(d.scene.failures).toBe(1);
+    expect(d.performance.frames).toBe(3);
+    expect(d.rendering.skipped).toBe('faulted');
+    expect(console.error).toHaveBeenCalledTimes(1);
+
+    await manager.transitionTo('/good');
+    frame(64);
+    d = diag(manager);
+    expect(d.scene).toMatchObject({ phase: 'active', route: '/good', failures: 1 });
+    expect(d.rendering).toMatchObject({ skipped: null, renderCalls: 3 });
+  });
+
+  it('rebuilds a halted scene instead of retargeting it', async () => {
+    const { manager } = createManager();
+    let ticks = 0;
+    const factory = (r: THREE.WebGLRenderer) => new FakeScene({
+      composer: composer(r),
+      retargetable: true,
+      tick: () => {
+        if (++ticks === 1) throw new Error('tick failed');
+      },
+    });
+    manager.registerScene('/a', factory);
+    manager.registerScene('/b', factory);
+    await manager.transitionTo('/a');
+    manager.start();
+    frame(16);
+    const faulted = diag(manager).scene;
+    expect(diag(manager).rendering.skipped).toBe('faulted');
+
+    await manager.transitionTo('/b');
+    frame(32);
+    const d = diag(manager);
+    expect(d.scene).toMatchObject({ phase: 'active', route: '/b', failures: 1 });
+    expect(d.scene.id).not.toBe(faulted.id);
+    expect(d.rendering.skipped).toBeNull();
+  });
+
+  it('labels a render that throws and restores autoReset', async () => {
+    const { manager } = createManager();
+    const broken = {
+      ...composer(manager.renderer),
+      render() {
+        throw new Error('pass failed');
+      },
+    } as unknown as Scene['composer'];
+    manager.registerScene('/bad', () => new FakeScene({ composer: broken }));
+    await manager.transitionTo('/bad');
+    manager.start();
+
+    frame(16);
+    expect(diag(manager).scene.lastError).toBe('/bad: render: pass failed');
+    expect(manager.renderer.info.autoReset).toBe(true);
+    expect(nextFrame).not.toBeNull();
+  });
+
   it('samples fps and cpu time over closed windows, and drops gaps', async () => {
     let clock = 0;
     vi.spyOn(performance, 'now').mockImplementation(() => clock);

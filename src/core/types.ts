@@ -55,7 +55,8 @@ export interface Scene {
    * INSTEAD of exit/dispose/rebuild — the scene stays alive across the DOM
    * swap and plays its own continuous transition (the basement.studio
    * move). Runs inside the `astro:before-swap` dispatch: the new DOM is
-   * not in yet — defer DOM-coupled wiring to `astro:page-load`.
+   * not in yet — defer DOM-coupled wiring to `astro:page-load`. A halted
+   * scene (`rendering.skipped: 'faulted'`) is rebuilt instead.
    */
   retarget?(route: string): void;
   dispose(): void;
@@ -96,9 +97,12 @@ export interface RuntimeDiagnostics {
      * Unchanged by retarget().
      */
     entered: boolean;
-    /** Hops and enterTransitions that threw since construction. */
+    /** Hops, enterTransitions and frames that threw since construction. */
     failures: number;
-    /** "<route>: <message>" of the latest failure. */
+    /**
+     * "<route>: <message>" of the latest failure; a frame that threw reads
+     * "<route>: tick: <message>" or "<route>: render: <message>".
+     */
     lastError: string | null;
   };
   performance: {
@@ -122,8 +126,12 @@ export interface RuntimeDiagnostics {
     cpuMs: number | null;
   };
   rendering: {
-    /** Why the last tick issued no scene render; null when it rendered. */
-    skipped: 'no-scene' | 'context-lost' | 'renders-false' | 'zero-size' | null;
+    /**
+     * Why the last tick issued no scene render; null when it rendered.
+     * faulted: the live scene's tick() or render threw, so the loop stopped
+     * ticking and rendering it until a navigation replaces it.
+     */
+    skipped: 'no-scene' | 'context-lost' | 'renders-false' | 'zero-size' | 'faulted' | null;
     /**
      * renderer.render() calls in the last tick: one per composer pass (bloom
      * mip passes included), plus renders made inside scene.tick.

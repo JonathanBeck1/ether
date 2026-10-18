@@ -16,6 +16,10 @@ Notable changes to ether. The format follows
   which skips the cleanup functions its callbacks return; track
   `() => ctx.revert()` to run them. `BaseScene.listen(target, type,
   handler, options?)` adds an event listener and tracks its removal.
+- `ether/core`: `RuntimeDiagnostics.rendering.skipped` can read
+  `'faulted'`, a new member of its union: the live scene's `tick()` or
+  render threw and is halted. Code that switches exhaustively over
+  `skipped` needs a case for it.
 
 ### Changed
 
@@ -33,6 +37,24 @@ Notable changes to ether. The format follows
   `dispose()` rethrows the error, or an `AggregateError` when several
   threw. The hop still fails and counts in the manager's `failures` and
   `lastError`. A second `dispose()` runs no teardown twice.
+- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
+  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
+  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
+  below 0.184.
+- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
+  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
+  hole-by-nesting in r185, so it no longer logs a deprecation warning per
+  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
+
+### Fixed
+
+- `ether/core`: a scene whose `tick()` or render throws no longer stops
+  the render loop for the tab. The manager stops ticking and rendering
+  that scene, logs the error once, counts it in `scene.failures` with
+  `lastError` `"<route>: tick: <message>"` (or `render:`), and keeps the
+  loop and navigation running, so the next route renders; a halted scene
+  is rebuilt even where it would retarget. The throw also
+  left `renderer.info.autoReset` false; it is restored.
 
 ## [1.2.0] — 2026-10-04
 
