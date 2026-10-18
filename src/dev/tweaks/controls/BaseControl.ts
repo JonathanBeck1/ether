@@ -8,7 +8,7 @@ import { hexNormalize } from '../color';
  * widget: buildWidget / refreshWidget / readWidget.
  *
  * No listener is ever added outside on() — destroy() iterates the ledger and
- * removes all of them (the Stats tickBound/resizeBound discipline, generalized).
+ * removes all of them (the Stats tickBound discipline, generalized).
  */
 export abstract class BaseControl<T extends TweakValue> implements Control {
   readonly path: string;

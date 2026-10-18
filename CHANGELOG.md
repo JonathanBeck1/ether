@@ -66,6 +66,21 @@ Notable changes to ether. The format follows
   same factory, and is retargeted instead of rebuilt. A queued
   navigation to the same route, forced or not, still lets the hop
   finish, and a forced one still rebuilds after it.
+- The `three` peer range is `>=0.184.0 <0.187.0`, covering 0.184 through
+  0.186. On three 0.186, postprocessing's own peer range needs 6.39.5 or
+  later. The `postprocessing` peer is `^6.39.1`, since 6.39.0 caps three
+  below 0.184.
+- `ether/text`: on three r185 and later, `extrudedWord` builds its shapes
+  with `ShapePath.toShapes()`, which took over `SVGLoader.createShapes`'s
+  hole-by-nesting in r185, so it no longer logs a deprecation warning per
+  glyph. The geometry is unchanged; on r184 it still uses `createShapes`.
+- `ether/dev`: `Stats` reads `manager.getDiagnostics()` instead of quality
+  intent and its own frame counter. FPS is the manager loop's, the MS row
+  is now CPU (main-thread ms per tick), FX lists the live composer's
+  enabled passes (`OFF` without one), VIEW is the canvas drawing-buffer
+  size instead of the window size, and new CALLS and TRIS rows show
+  last-frame draw calls and triangles. DPR reads the same value as
+  before. FPS and CPU read `--` until the loop closes a sample window.
 
 ### Fixed
 
