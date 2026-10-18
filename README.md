@@ -265,12 +265,15 @@ import { createHeroComposer } from 'ether/postfx';
 import { extrudedWord } from 'ether/text';
 
 export class HeroScene extends BaseScene {
-  // Stand-in. Your material is the art direction; the kit has no opinion.
+  // Stand-ins. Your material and lights are the art direction; the kit has no opinion.
   private readonly material = new THREE.MeshStandardMaterial({ color: '#c8d0ff' });
 
   constructor(renderer: THREE.WebGLRenderer, quality: QualityProfile) {
     super(); // fov 50, near 0.1, far 100, camera at z = 4 — override via options
     this.track(this.material);
+    const key = new THREE.DirectionalLight('#ffffff', 2);
+    key.position.set(2, 3, 4);
+    this.scene.add(new THREE.HemisphereLight('#ffffff', '#202330', 1), key);
     this.composer = createHeroComposer(renderer, this.scene, this.camera, {
       enableDither: quality.enableDither,
       multisampling: quality.msaaSamples,
