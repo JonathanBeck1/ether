@@ -76,6 +76,17 @@ describe('URL state', () => {
     expect(decodeURLState(encodeURLState(diff))).toEqual(diff);
   });
 
+  it('round-trips paths and values outside Latin-1', () => {
+    const diff = { 'Hero → glow': 0.5, label: '光', mood: '🙂' };
+    expect(decodeURLState(encodeURLState(diff))).toEqual(diff);
+  });
+
+  it('still decodes links written by the Latin-1 encoder, and writes ASCII ones unchanged', () => {
+    const latin1 = { bloom: 0.12, finish: 'café' };
+    expect(decodeURLState(btoa(JSON.stringify(latin1)))).toEqual(latin1);
+    expect(encodeURLState({ bloom: 0.12 })).toBe(btoa('{"bloom":0.12}'));
+  });
+
   it('returns null for absent, undecodable, or non-object payloads', () => {
     expect(decodeURLState(null)).toBeNull();
     expect(decodeURLState('')).toBeNull();

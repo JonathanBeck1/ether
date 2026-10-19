@@ -176,7 +176,7 @@ tree-shake reliably:
 | `ether/scroll` | `ScrollBridge`, `ScrollBridgeOptions`, `createScrollProgress`, `ScrollProgressOptions`, `ScrollProgressTrigger` | Lenis ↔ ScrollTrigger bridge that owns the three things a site shouldn't: plugin registration, `lenis.on('scroll', ScrollTrigger.update)`, and the seconds → ms `raf` conversion. Plus a scroll-progress → callback trigger factory. Construct the bridge only when the quality profile enables smooth scroll (never under reduced motion). |
 | `ether/text` | `extrudedWord`, `ExtrudedLetter`, `ExtrudedWordOptions`, `ExtrudeProfile` | Type as form: opentype.js → SVG path → `SVGLoader` (glyph holes handled) → beveled `ExtrudeGeometry`, per letter, with canonical rest poses. You supply the material. |
 | `ether/text/msdf` | `msdfText`, `MSDFText`, `MSDFTextOptions` | Type as text: an MSDF mesh via `troika-three-text`, resolved once its atlas is ready — crisp at any distance. Its own entry so the optional peer is only pulled in by sites that import it. Serve your own `.ttf`, `.otf` or `.woff` — the URL is preflighted and its first bytes checked, so an unreachable URL, a woff2 (troika cannot parse one) or an HTML page served in its place rejects instead of hanging. Characters your font does not cover still fall back to troika's unicode-font-resolver, whose data comes from jsDelivr: set `unicodeFontsURL` to your own copy, or keep the text inside the font's coverage. If the atlas is not ready within `timeoutMs` (default 10000), most often because that fallback fetch is blocked, the call rejects naming the font. |
-| `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `RGBELoader` (+ PMREM env map), all feeding one weighted progress value. Register every load with `progress.track` before awaiting the first, so the total is known up front. No asset pipeline — compress offline, load here. |
+| `ether/loaders` | `createProgress`, `Progress`, `loadGLTF`, `loadTexture`, `loadHDR`, option types | Promise wrappers over three's `GLTFLoader` (+ Draco / KTX2 when you serve the decoders), `TextureLoader`, and `HDRLoader` (+ PMREM env map), all feeding one weighted progress value. Register every load with `progress.track` before awaiting the first, so the total is known up front. No asset pipeline — compress offline, load here. |
 | `ether/primitives` | `ShaderQuad`, `ShaderQuadOptions` | Fullscreen shader plane with `uTime` + `uAspect` wired. `aspect` (default 1) seeds `uAspect` for the frames before the first `resize()`, which owns it from then on — set it when the quad is built outside a live manager. Backdrops live here. |
 | `ether/interactions` | `initCardTilt` | Pointer-driven 3D card tilt with snap-to-rest idle, fine-pointer gate, and view-transition rebind. Returns its teardown — call it on unmount. |
 | `ether/shaders` | `dither` (string), `dither.glsl` (via `?raw`) | Reusable GLSL chunks — each file is also exported as a named string, so they compose into your shader sources from any bundler. |
@@ -350,7 +350,8 @@ A hop runs in this order:
    awaited; a navigation mid-intro exits and disposes the scene anyway.
 5. From the next frame, `tick(time, deltaTime)` runs every frame, in
    seconds. `onResize(width, height)` runs whenever the canvas box
-   settles on a new size, including once before `preload()`.
+   settles on a new size with a non-zero width and height, including
+   once before `preload()`.
 
 Navigations that land during a hop are latest-wins: the queue settles on
 the last one. A hop overtaken by a different route that resolves to a

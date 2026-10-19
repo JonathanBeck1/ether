@@ -196,6 +196,11 @@ export async function runAssetsSuite(baseUrl, launchOptions = {}) {
       tilt.bound !== '' && tilt.afterTeardown === '',
       `interactions: pointermove writes nothing after teardown (bound ${tilt.bound || 'unset'}, after ${tilt.afterTeardown || 'unset'})`,
     );
+    // afterTeardown is unset, so only the live binding can write it again.
+    check(
+      tilt.afterTeardown === '' && tilt.afterSuperseded !== '',
+      `interactions: a superseded binding's teardown leaves the live one bound (${tilt.afterSuperseded || 'unset'})`,
+    );
 
     check(
       pageErrors.length === 0,

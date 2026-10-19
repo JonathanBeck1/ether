@@ -306,7 +306,8 @@ async function lutProbe(url: string) {
 }
 
 // initCardTilt returns its teardown; after calling it, pointer movement must
-// stop writing the tilt vars.
+// stop writing the tilt vars. A teardown a later init superseded must leave
+// that later binding alone.
 async function tiltProbe() {
   const card = document.createElement('div');
   card.setAttribute('data-tilt', '');
@@ -333,8 +334,16 @@ async function tiltProbe() {
   await settle();
   const afterTeardown = tiltX();
 
+  const superseded = initCardTilt();
+  const live = initCardTilt();
+  superseded();
+  move();
+  await settle();
+  const afterSuperseded = tiltX();
+  live();
+
   card.remove();
-  return { returnsFunction: typeof teardown === 'function', bound, afterTeardown };
+  return { returnsFunction: typeof teardown === 'function', bound, afterTeardown, afterSuperseded };
 }
 
 async function textProbe() {

@@ -15,6 +15,36 @@ Notable changes to ether. The format follows
   under `skipLibCheck: false` and, under `skipLibCheck: true`, typed most
   entries' exports as `any` without an error. Relative imports now end
   in `.js`; the built JavaScript is unchanged.
+- `ether/core`: a manager destroyed while the outgoing scene's
+  `exitTransition()` is pending disposes that scene once. `destroy()`
+  disposed it and the hop disposed it again when the exit settled;
+  `BaseScene.dispose()` survives that, a `Scene` implemented directly
+  may not. A scene whose `dispose()` throws after the manager was
+  destroyed during its `preload()` is no longer disposed twice either.
+- `ether/core`: a canvas that measures zero wide or tall
+  (`display: none`, a collapsed container) no longer sizes the renderer
+  or the live scene to zero, which gave the camera a NaN or 0 aspect,
+  the composer a zero size and `onResize()` a zero side. Drawing is
+  still skipped as `'zero-size'` while the canvas measures zero, and the
+  next real size is applied once it returns.
+- `ether/loaders`: `loadHDR` loads through three's `HDRLoader` instead
+  of `RGBELoader`, which three deprecated in r180 and which logged a
+  warning on every call. The texture, its half-float data type and the
+  PMREM environment are unchanged.
+- `ether/interactions`: the teardown returned by an earlier
+  `initCardTilt()` no longer unbinds the binding a later call made.
+  Once a later call has re-bound the cards, it is a no-op.
+- `ether/dev`: the tweaks panel keeps `history.state` when it writes
+  `?tweak` into the URL instead of replacing it with null, which lost
+  the state a client router, Astro's among them, reads on back/forward.
+- `ether/dev`: `?tweak` URL state encodes paths and values outside
+  Latin-1 (`'Hero → glow'`, emoji) instead of throwing. The payload is
+  base64 of UTF-8; links written by earlier versions still decode, and
+  ASCII-only links are unchanged.
+- `ether/dev`: number controls whose step has more than one significant
+  digit, such as 0.25 or 2.5, read out and export at the step's own
+  precision. At a step of 0.25 the panel showed 0.25 as 0.3 and
+  exported 0.75 as 0.8; at 2.5 it exported 2.5 as 3.
 
 ## [1.3.0] — 2026-10-18
 

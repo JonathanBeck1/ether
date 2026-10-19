@@ -49,10 +49,14 @@ vi.mock('three', () => ({
 }));
 
 let nextFrame: ((now: number) => void) | null = null;
+let fireResize: (() => void) | null = null;
 
 vi.stubGlobal(
   'ResizeObserver',
   class {
+    constructor(callback: () => void) {
+      fireResize = callback;
+    }
     observe(): void {}
     disconnect(): void {}
   },
@@ -493,6 +497,58 @@ describe('SceneManager.getDiagnostics', () => {
       drawCalls: 0,
     });
     expect(d.performance.frames).toBe(3);
+  });
+
+  it('skips drawing while the canvas measures zero, sizing nothing to 0 or NaN, then resizes once', async () => {
+    const { canvas, manager } = createManager();
+    const composerSizes: number[][] = [];
+    const resizes: number[][] = [];
+    const scene = Object.assign(
+      new FakeScene({
+        composer: {
+          passes: PASSES,
+          multisampling: 0,
+          setSize: (w: number, h: number) => void composerSizes.push([w, h]),
+          render: () => manager.renderer.render({} as THREE.Scene, {} as THREE.Camera),
+        } as unknown as Scene['composer'],
+      }),
+      { onResize: (w: number, h: number) => void resizes.push([w, h]) },
+    );
+    manager.registerScene('/a', () => scene);
+    await manager.transitionTo('/a');
+    manager.start();
+    const setSize = vi.spyOn(manager.renderer, 'setSize');
+
+    let now = 16;
+    frame(now);
+    expect(diag(manager).rendering).toMatchObject({ skipped: null, renderCalls: 1 });
+
+    // Hidden mid-session (display: none), then collapsed to no width.
+    for (const [w, h] of [[0, 0], [0, 500]]) {
+      canvas.clientWidth = w;
+      canvas.clientHeight = h;
+      fireResize?.();
+      await sleep(200); // past the handler's 150 ms debounce
+      frame((now += 16));
+      expect(setSize).not.toHaveBeenCalled();
+      expect(scene.camera.aspect).toBe(2);
+      expect(diag(manager).rendering).toMatchObject({ skipped: 'zero-size', renderCalls: 0, drawCalls: 0 });
+    }
+    expect(resizes).toEqual([[1000, 500]]);
+    expect(composerSizes).toEqual([[1000, 500]]);
+
+    canvas.clientWidth = 800;
+    canvas.clientHeight = 800;
+    fireResize?.();
+    await sleep(200);
+    frame((now += 16));
+
+    expect(setSize).toHaveBeenCalledOnce();
+    expect(setSize).toHaveBeenCalledWith(800, 800, false);
+    expect(scene.camera.aspect).toBe(1);
+    expect(resizes).toEqual([[1000, 500], [800, 800]]);
+    expect(composerSizes).toEqual([[1000, 500], [800, 800]]);
+    expect(diag(manager).rendering).toMatchObject({ skipped: null, renderCalls: 1, drawCalls: 1 });
   });
 
   it('halts a scene whose tick throws without stopping the loop', async () => {

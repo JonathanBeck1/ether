@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { tracked, type TrackOptions } from './progress.js';
 
 export interface LoadHDROptions extends TrackOptions {
@@ -19,7 +19,7 @@ export interface HDRResult {
 }
 
 export function loadHDR(url: string, options: LoadHDROptions = {}): Promise<HDRResult> {
-  const load = new RGBELoader().loadAsync(url).then((texture) => {
+  const load = new HDRLoader().loadAsync(url).then((texture) => {
     texture.mapping = THREE.EquirectangularReflectionMapping;
     if (!options.renderer) return { texture, dispose: () => texture.dispose() };
     const pmrem = new THREE.PMREMGenerator(options.renderer);

@@ -121,7 +121,8 @@ function onPointerLeave(this: HTMLElement) {
 }
 
 /** Returns the teardown for this binding — call it on unmount. A no-op when
- *  the effect did not bind (no fine pointer, reduced motion, no cards). */
+ *  the effect did not bind (no fine pointer, reduced motion, no cards) or a
+ *  later call has re-bound the cards. */
 export function initCardTilt(): () => void {
   // Idempotent — tear down previous instance first (safe across Astro
   // view transitions / HMR).
@@ -155,7 +156,9 @@ export function initCardTilt(): () => void {
     s.el.addEventListener('pointerleave', onPointerLeave);
   }
 
-  teardown = () => {
+  const unbind = () => {
+    // The module state belongs to whichever binding is live; only that one may clear it.
+    if (teardown !== unbind) return;
     for (const s of states) {
       s.el.removeEventListener('pointermove', onPointerMove);
       s.el.removeEventListener('pointerleave', onPointerLeave);
@@ -167,5 +170,6 @@ export function initCardTilt(): () => void {
     }
     teardown = null;
   };
-  return teardown;
+  teardown = unbind;
+  return unbind;
 }

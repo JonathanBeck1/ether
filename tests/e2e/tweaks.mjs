@@ -1,6 +1,8 @@
 // Keyboard paths through the tweaks panel that need real focus and layout:
 // tabbing past a closed color row must neither stop inside its hidden picker
-// nor write the color. Run alongside the core suite by run.mjs.
+// nor write the color. Also: writing ?tweak keeps the history entry's state,
+// which a client router reads on back/forward. Run alongside the core suite
+// by run.mjs.
 import { chromium } from 'playwright';
 
 const READY_TIMEOUT_MS = 60_000;
@@ -67,6 +69,23 @@ export async function runTweaksSuite(baseUrl, launchOptions = {}) {
       check(
         after.diff !== null && Object.keys(after.diff).length === 0,
         `color: tabbing through leaves the store diff empty (got ${JSON.stringify(after.diff)})`,
+      );
+    } finally {
+      await page.evaluate(() => window.__fixture.tweaksUnmount());
+    }
+
+    // The shape Astro's router keeps on each entry: its index and scroll.
+    await page.evaluate(() => history.replaceState({ index: 3, scrollX: 0, scrollY: 120 }, ''));
+    await page.evaluate(() => window.__fixture.tweaksMount());
+    try {
+      await page.click('[data-kit-tweaks] [aria-label="Copy link"]');
+      const link = await page.evaluate(() => ({
+        state: history.state,
+        tweak: new URL(location.href).searchParams.has('tweak'),
+      }));
+      check(
+        link.tweak && link.state?.index === 3 && link.state?.scrollY === 120,
+        `link: writing ?tweak keeps history.state (tweak ${link.tweak}, state ${JSON.stringify(link.state)})`,
       );
     } finally {
       await page.evaluate(() => window.__fixture.tweaksUnmount());

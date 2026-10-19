@@ -431,7 +431,7 @@ export class Tweaks {
   private writeUrlState(): void {
     const url = new URL(location.href);
     url.searchParams.set('tweak', encodeURLState(this.store.diff()));
-    history.replaceState(null, '', url.toString());
+    history.replaceState(history.state, '', url.toString());
   }
 
   private async copy(text: string, btn: HTMLElement, label: string): Promise<void> {

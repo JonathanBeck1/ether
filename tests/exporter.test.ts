@@ -46,6 +46,11 @@ describe('buildConstantsBlock', () => {
     expect(block).toContain('export const BLOOM_INTENSITY = 0.3;');
   });
 
+  it('keeps every decimal of a step like 0.25 instead of rounding to its magnitude', () => {
+    const entries = [entry('fog.density', { constant: 'FOG_DENSITY', shape: 'number' }, 0.25)];
+    expect(buildConstantsBlock({ 'fog.density': 0.75 }, entries)).toBe('export const FOG_DENSITY = 0.75;');
+  });
+
   it('pairs each array element with the constant at the same index', () => {
     const entries = [
       entry('camera.z', { constants: ['CAMERA_Z_START', 'CAMERA_Z_END'], shape: 'number' }, 0.1),

@@ -390,4 +390,45 @@ describe('SceneManager transitions', () => {
     expect(a.disposed).toBe(1);
     expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /b:');
   });
+
+  it('disposes the outgoing scene once when the manager is destroyed during its exit', async () => {
+    const { manager } = createManager();
+    const exit = latch();
+    const a = new FakeScene('A', { exit: () => exit.gate });
+    const buildB = vi.fn(() => new FakeScene('B'));
+    manager.registerScene('/a', () => a);
+    manager.registerScene('/b', buildB);
+
+    await manager.transitionTo('/a');
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // A is parked in exitTransition()
+    manager.destroy();
+    exit.open();
+    await hop;
+
+    expect(a.disposed).toBe(1);
+    expect(buildB).not.toHaveBeenCalled();
+  });
+
+  it('disposes a scene once when the manager is destroyed during its preload() and dispose() throws', async () => {
+    const { manager } = createManager();
+    const preload = latch();
+    const b = new FakeScene('B', {
+      preload: () => preload.gate,
+      dispose: () => {
+        throw new Error('dispose failed');
+      },
+    });
+    manager.registerScene('/b', () => b);
+
+    const hop = manager.transitionTo('/b');
+    await sleep(10); // B is parked in preload()
+    manager.destroy();
+    preload.open();
+    await hop;
+
+    expect(b.disposed).toBe(1);
+    expect(b.entered).toBe(0);
+    expect(errors.at(-1)?.[0]).toBe('[SceneManager] transition failed for /b:');
+  });
 });

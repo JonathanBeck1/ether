@@ -104,19 +104,30 @@ export function deletePreset(storageKey: string, name: string): void {
   writePresets(storageKey, presets);
 }
 
-// ── URL state (diff only, base64) ──────────────────────────────────────
+// ── URL state (diff only, base64 of UTF-8) ─────────────────────────────
 
 export function encodeURLState(diff: DiffMap): string {
-  return btoa(JSON.stringify(diff));
+  let binary = '';
+  for (const byte of new TextEncoder().encode(JSON.stringify(diff))) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 /** Decode the ?tweak payload. Guarded: bad base64 / JSON / shape → null. */
 export function decodeURLState(payload: string | null): DiffMap | null {
   if (!payload) return null;
   try {
-    const parsed: unknown = JSON.parse(atob(payload));
+    const parsed: unknown = JSON.parse(fromBinary(atob(payload)));
     return isPlainMap(parsed) ? (parsed as DiffMap) : null;
   } catch {
     return null;
+  }
+}
+
+// A link from the older Latin-1 encoder is not valid UTF-8 once it holds non-ASCII text; read it as is.
+function fromBinary(binary: string): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+  } catch {
+    return binary;
   }
 }

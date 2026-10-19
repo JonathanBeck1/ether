@@ -271,10 +271,10 @@ export class SceneManager {
       if (this._activeScene) {
         const outgoing = this._activeScene;
         await outgoing.exitTransition();
+        if (this.destroyed) return; // torn down mid-exit: destroy() disposed it, so build nothing
         this._activeScene = null;
         outgoing.dispose();
       }
-      if (this.destroyed) return; // manager torn down mid-exit — don't build a zombie
       if (this.superseded(routeName, factory)) {
         this.currentRoute = null;
         return;
@@ -291,7 +291,12 @@ export class SceneManager {
       const h = canvas.clientHeight;
       if (w > 0 && h > 0) this.sizeScene(next, w, h);
       if (next.preload) await next.preload();
-      if (this.destroyed) { next.dispose(); return; }
+      if (this.destroyed) {
+        const stale = next;
+        next = null; // so the catch below cannot dispose it twice
+        stale.dispose();
+        return;
+      }
       if (this.superseded(routeName, factory, next)) {
         const stale = next;
         next = null; // so the catch below cannot dispose it twice
@@ -391,15 +396,16 @@ export class SceneManager {
         // canvas. Only the GPU render calls are skipped (they'd no-op and
         // spam console errors on a dead context).
         this._activeScene.tick(now / 1000, deltaTime);
-        // domElement.width guard: a route swap can CSS-hide the canvas
-        // (e.g. /web parks it) while the OUTGOING scene's exit fade is
-        // still rendering — drawing into the zero-size framebuffer spams
-        // GL_INVALID_FRAMEBUFFER_OPERATION every frame of the fade.
+        // zero-size guard: a route swap can CSS-hide the canvas (e.g. /web
+        // parks it) while the OUTGOING scene's exit fade is still rendering.
+        // Resize keeps the renderer at its last real size then, so the
+        // measured box decides; a zero drawing buffer (a canvas hidden at
+        // boot) would spam GL_INVALID_FRAMEBUFFER_OPERATION every frame.
         skipped = this.contextLost
           ? 'context-lost'
           : this._activeScene.renders === false
             ? 'renders-false'
-            : this.renderer.domElement.width === 0
+            : this.lastResizeW === 0 || this.lastResizeH === 0 || this.renderer.domElement.width === 0
               ? 'zero-size'
               : null;
         if (skipped === null) {
@@ -471,6 +477,8 @@ export class SceneManager {
       if (w === this.lastResizeW && h === this.lastResizeH) return;
       this.lastResizeW = w;
       this.lastResizeH = h;
+      // Hidden or collapsed: the tick skips drawing ('zero-size'); size nothing to 0 or NaN.
+      if (w === 0 || h === 0) return;
       this.renderer.setSize(w, h, false);
       if (this._activeScene) this.sizeScene(this._activeScene, w, h);
     }, 150);

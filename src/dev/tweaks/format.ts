@@ -1,9 +1,11 @@
 // Step-driven number formatting, shared by slider readouts AND export literals.
 
-/** Decimal places implied by a step, derived generically (no hardcoded table). */
+/** Decimal places the step is written with (0.25 → 2, 2.5 → 1, 10 → 0), so
+ *  every multiple of it formats exactly. */
 export function decimals(step: number): number {
   if (!(step > 0)) return 0;
-  return Math.max(0, -Math.floor(Math.log10(step)));
+  const [mantissa, exponent] = step.toExponential().split('e');
+  return Math.max(0, (mantissa.split('.')[1]?.length ?? 0) - Number(exponent));
 }
 
 /** Display string at step precision. */
