@@ -4,7 +4,15 @@ Notable changes to ether. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.3.1] — 2026-10-19
+
+A patch release. The types resolve under `node16` and `nodenext` module
+resolution as well as `bundler`, and seven correctness fixes from a
+review land: a scene destroyed mid-hop is disposed once, a hidden canvas
+no longer sizes anything to zero, `loadHDR` uses `HDRLoader`, an earlier
+`initCardTilt()` teardown no longer unbinds a later binding, and the
+tweaks panel keeps `history.state`, encodes non-Latin URL state and
+rounds at the step's own precision. No API changes.
 
 ### Fixed
 
